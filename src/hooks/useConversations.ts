@@ -160,10 +160,9 @@ export const useCreatePrivateConversation = () => {
         .single();
       if (error) throw error;
 
-      await supabase.from("conversation_members").insert([
-        { conversation_id: conv.id, user_id: user.id, role: "owner" },
-        { conversation_id: conv.id, user_id: contactId, role: "member" },
-      ]);
+      // Insert owner first so RLS check passes for the second insert
+      await supabase.from("conversation_members").insert({ conversation_id: conv.id, user_id: user.id, role: "owner" });
+      await supabase.from("conversation_members").insert({ conversation_id: conv.id, user_id: contactId, role: "member" });
 
       return conv.id;
     },
