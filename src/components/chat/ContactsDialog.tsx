@@ -35,9 +35,14 @@ export const ContactsDialog = ({ open, onOpenChange, onStartChat }: ContactsDial
   };
 
   const handleStartChat = async (contactId: string) => {
-    const convId = await createConversation.mutateAsync(contactId);
-    onOpenChange(false);
-    onStartChat(convId);
+    try {
+      const convId = await createConversation.mutateAsync(contactId);
+      onOpenChange(false);
+      onStartChat(convId);
+    } catch (err: any) {
+      console.error("handleStartChat error:", err);
+      toast({ title: "Ошибка создания чата", description: err?.message || "Неизвестная ошибка", variant: "destructive" });
+    }
   };
 
   const contactIds = new Set(contacts?.map((c) => c.contact_id));
