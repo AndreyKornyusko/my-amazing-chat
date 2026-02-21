@@ -161,8 +161,10 @@ export const useCreatePrivateConversation = () => {
       if (error) throw error;
 
       // Insert owner first so RLS check passes for the second insert
-      await supabase.from("conversation_members").insert({ conversation_id: conv.id, user_id: user.id, role: "owner" });
-      await supabase.from("conversation_members").insert({ conversation_id: conv.id, user_id: contactId, role: "member" });
+      const { error: ownerErr } = await supabase.from("conversation_members").insert({ conversation_id: conv.id, user_id: user.id, role: "owner" });
+      if (ownerErr) throw ownerErr;
+      const { error: memberErr } = await supabase.from("conversation_members").insert({ conversation_id: conv.id, user_id: contactId, role: "member" });
+      if (memberErr) throw memberErr;
 
       return conv.id;
     },
