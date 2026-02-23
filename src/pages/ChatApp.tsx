@@ -29,7 +29,7 @@ const ChatApp = () => {
         </div>
       )}
       {(!isMobile || !showSidebar) && (
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col h-full overflow-hidden">
           <ChatWindow
             conversationId={activeConversationId}
             onBack={isMobile ? handleBack : undefined}
