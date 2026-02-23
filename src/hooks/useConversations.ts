@@ -189,12 +189,15 @@ export const useCreateGroupConversation = () => {
         .single();
       if (error) throw error;
 
-      const members = [
-        { conversation_id: conv.id, user_id: user.id, role: "owner" as const },
-        ...memberIds.map((id) => ({ conversation_id: conv.id, user_id: id, role: "member" as const })),
-      ];
+      // Insert owner first so RLS check passes for subsequent inserts
+      const { error: ownerErr } = await supabase.from("conversation_members").insert({ conversation_id: conv.id, user_id: user.id, role: "owner" as const });
+      if (ownerErr) throw ownerErr;
 
-      await supabase.from("conversation_members").insert(members);
+      if (memberIds.length > 0) {
+        const otherMembers = memberIds.map((id) => ({ conversation_id: conv.id, user_id: id, role: "member" as const }));
+        const { error: membersErr } = await supabase.from("conversation_members").insert(otherMembers);
+        if (membersErr) throw membersErr;
+      }
       return conv.id;
     },
     onSuccess: () => {
