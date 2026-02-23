@@ -31,15 +31,15 @@ export const ForwardDialog = ({ message, open, onOpenChange }: ForwardDialogProp
   };
 
   const getConvName = (conv: any) => {
-    if (conv.type === "group") return conv.name || "Группа";
+    if (conv.type === "group") return conv.name || "Group";
     const other = conv.members.find((m: any) => m.user_id !== user?.id);
-    return other?.profile?.display_name || "Чат";
+    return other?.profile?.display_name || "Chat";
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
-        <h3 className="text-lg font-semibold mb-3">Переслать в:</h3>
+        <h3 className="text-lg font-semibold mb-3">Forward to:</h3>
         <ScrollArea className="h-[300px]">
           {conversations?.map((conv) => (
             <Button key={conv.id} variant="ghost" className="w-full justify-start mb-1" onClick={() => handleForward(conv.id)}>

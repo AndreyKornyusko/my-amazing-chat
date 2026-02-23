@@ -6,9 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Send, Paperclip, Mic, X, Check, CheckCheck, Pencil, Trash2, Reply, Forward, Search } from "lucide-react";
+import { ArrowLeft, Send, Paperclip, X, Check, CheckCheck, Pencil, Trash2, Reply, Forward, Search, Play } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
-import { ru } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ForwardDialog } from "./ForwardDialog";
@@ -84,7 +83,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
     const path = `${conversationId}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from("chat-media").upload(path, file);
     if (error) {
-      toast({ title: "Ошибка загрузки", description: error.message, variant: "destructive" });
+      toast({ title: "Upload error", description: error.message, variant: "destructive" });
       return;
     }
 
@@ -113,12 +112,12 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   if (!conversationId) {
     return (
       <div className="flex flex-1 items-center justify-center bg-muted/30">
-        <p className="text-muted-foreground">Выберите чат, чтобы начать общение</p>
+        <p className="text-muted-foreground">Select a chat to start messaging</p>
       </div>
     );
   }
 
-  const chatName = conversation ? getConvName(conversation, user?.id ?? "") : "Чат";
+  const chatName = conversation ? getConvName(conversation, user?.id ?? "") : "Chat";
   const chatAvatar = conversation ? getConvAvatar(conversation, user?.id ?? "") : null;
   const otherUser = conversation?.type === "private" ? conversation.members.find((m) => m.user_id !== user?.id) : null;
 
@@ -139,10 +138,10 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
           <h2 className="font-semibold">{chatName}</h2>
           <p className="text-xs text-muted-foreground">
             {conversation?.type === "group"
-              ? `${conversation.members.length} участников`
+              ? `${conversation.members.length} members`
               : otherUser?.profile?.is_online
-              ? "онлайн"
-              : "оффлайн"}
+              ? "online"
+              : "offline"}
           </p>
         </div>
         <Button variant="ghost" size="icon" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(""); }}>
@@ -154,14 +153,14 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
         <div className="border-b border-border px-4 py-2">
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Поиск сообщений..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" autoFocus />
+            <Input placeholder="Search messages..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" autoFocus />
           </div>
         </div>
       )}
 
       {/* Messages */}
       <ScrollArea className="flex-1 px-4 py-2">
-        {isLoading && <div className="flex justify-center py-8 text-muted-foreground">Загрузка...</div>}
+        {isLoading && <div className="flex justify-center py-8 text-muted-foreground">Loading...</div>}
         {filteredMessages.map((msg, i) => {
           const prev = filteredMessages[i - 1];
           const showDate = !prev || !isSameDay(new Date(prev.created_at), new Date(msg.created_at));
@@ -191,7 +190,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
         <div className="flex items-center gap-2 border-t border-border bg-muted/50 px-4 py-2">
           <div className="flex-1 truncate text-sm">
             {editingMsg ? (
-              <span className="text-primary"><Pencil className="mr-1 inline h-3 w-3" />Редактирование</span>
+              <span className="text-primary"><Pencil className="mr-1 inline h-3 w-3" />Editing</span>
             ) : (
               <span className="text-primary"><Reply className="mr-1 inline h-3 w-3" />{replyTo?.sender_profile?.display_name}: {replyTo?.content?.slice(0, 50)}</span>
             )}
@@ -209,7 +208,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
           <Paperclip className="h-5 w-5" />
         </Button>
         <Input
-          placeholder="Сообщение..."
+          placeholder="Message..."
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
@@ -236,7 +235,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
 // --- Sub-components ---
 
 const DateSeparator = ({ date }: { date: Date }) => {
-  const label = isToday(date) ? "Сегодня" : isYesterday(date) ? "Вчера" : format(date, "d MMMM yyyy", { locale: ru });
+  const label = isToday(date) ? "Today" : isYesterday(date) ? "Yesterday" : format(date, "MMM d, yyyy");
   return (
     <div className="my-3 flex justify-center">
       <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{label}</span>
@@ -270,7 +269,7 @@ const MessageBubble = ({
   if (msg.is_deleted) {
     return (
       <div className={`mb-1 flex ${isOwn ? "justify-end" : "justify-start"}`}>
-        <div className="rounded-xl bg-muted px-3 py-2 text-sm italic text-muted-foreground">Сообщение удалено</div>
+        <div className="rounded-xl bg-muted px-3 py-2 text-sm italic text-muted-foreground">Message deleted</div>
       </div>
     );
   }
@@ -305,33 +304,52 @@ const MessageBubble = ({
         )}
 
         {msg.forwarded_from_id && (
-          <p className="mb-0.5 text-xs italic text-muted-foreground">↗ Пересланное сообщение</p>
+          <p className="mb-0.5 text-xs italic text-muted-foreground">↗ Forwarded message</p>
         )}
 
+        {/* Photo preview */}
         {(msg.type === "photo" && msg.file_url) && (
-          <img
-            src={msg.file_url}
-            alt="photo"
-            className="mb-1 max-h-60 cursor-pointer rounded-lg object-cover"
+          <div
+            className="mb-1 cursor-pointer overflow-hidden rounded-lg"
             onClick={() => onMediaClick(msg.file_url!)}
-          />
+          >
+            <img
+              src={msg.file_url}
+              alt={msg.file_name || "photo"}
+              className="max-h-60 w-full object-cover transition-transform hover:scale-105"
+              loading="lazy"
+            />
+          </div>
         )}
 
+        {/* Video preview with thumbnail */}
         {(msg.type === "video" && msg.file_url) && (
-          <video
-            src={msg.file_url}
-            className="mb-1 max-h-60 cursor-pointer rounded-lg"
+          <div
+            className="relative mb-1 cursor-pointer overflow-hidden rounded-lg"
             onClick={() => onMediaClick(msg.file_url!)}
-            controls
-          />
+          >
+            <video
+              src={msg.file_url}
+              className="max-h-60 w-full object-cover"
+              preload="metadata"
+              muted
+            />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/30 transition-colors hover:bg-black/40">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg">
+                <Play className="h-6 w-6 text-foreground ml-0.5" fill="currentColor" />
+              </div>
+            </div>
+          </div>
         )}
 
+        {/* File attachment */}
         {(msg.type === "file" && msg.file_url) && (
           <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="mb-1 flex items-center gap-2 rounded bg-muted/50 p-2 text-sm hover:bg-muted">
-            📎 {msg.file_name || "Файл"}
+            📎 {msg.file_name || "File"}
           </a>
         )}
 
+        {/* Voice message */}
         {(msg.type === "voice" && msg.file_url) && (
           <audio src={msg.file_url} controls className="mb-1 w-full" />
         )}
@@ -341,7 +359,7 @@ const MessageBubble = ({
         )}
 
         <div className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${isOwn ? "text-chat-bubble-out-foreground/50" : "text-chat-bubble-in-foreground/50"}`}>
-          {msg.is_edited && <span>ред.</span>}
+          {msg.is_edited && <span>edited</span>}
           <span>{time}</span>
           {isOwn && (
             hasReads ? <CheckCheck className="h-3 w-3 text-read" /> : <Check className="h-3 w-3" />
@@ -371,9 +389,9 @@ function isSameDay(a: Date, b: Date) {
 }
 
 function getConvName(conv: ConversationWithDetails, uid: string) {
-  if (conv.type === "group") return conv.name || "Группа";
+  if (conv.type === "group") return conv.name || "Group";
   const other = conv.members.find((m) => m.user_id !== uid);
-  return other?.profile?.display_name || "Чат";
+  return other?.profile?.display_name || "Chat";
 }
 
 function getConvAvatar(conv: ConversationWithDetails, uid: string) {

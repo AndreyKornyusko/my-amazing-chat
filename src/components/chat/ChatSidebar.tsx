@@ -6,9 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Plus, Moon, Sun, LogOut, Users, UserPlus } from "lucide-react";
+import { Search, Moon, Sun, LogOut, Users, UserPlus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { ru } from "date-fns/locale";
 import { ContactsDialog } from "./ContactsDialog";
 import { NewGroupDialog } from "./NewGroupDialog";
 
@@ -41,7 +40,7 @@ export const ChatSidebar = ({ activeConversationId, onSelectConversation }: Chat
     <>
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <h1 className="text-lg font-bold">Чаты</h1>
+          <h1 className="text-lg font-bold">Chats</h1>
           {totalUnread > 0 && (
             <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
               {totalUnread}
@@ -67,15 +66,15 @@ export const ChatSidebar = ({ activeConversationId, onSelectConversation }: Chat
       <div className="px-3 py-2">
         <div className="relative">
           <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Поиск чатов..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          <Input placeholder="Search chats..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
       </div>
 
       <ScrollArea className="flex-1">
-        {isLoading && <div className="p-4 text-center text-muted-foreground">Загрузка...</div>}
+        {isLoading && <div className="p-4 text-center text-muted-foreground">Loading...</div>}
         {!isLoading && filtered.length === 0 && (
           <div className="p-4 text-center text-muted-foreground">
-            {search ? "Ничего не найдено" : "Нет чатов. Добавьте контакт, чтобы начать!"}
+            {search ? "Nothing found" : "No chats yet. Add a contact to get started!"}
           </div>
         )}
         {filtered.map((conv) => (
@@ -96,9 +95,9 @@ export const ChatSidebar = ({ activeConversationId, onSelectConversation }: Chat
 };
 
 function getConversationName(conv: ConversationWithDetails, currentUserId: string): string {
-  if (conv.type === "group") return conv.name || "Группа";
+  if (conv.type === "group") return conv.name || "Group";
   const other = conv.members.find((m) => m.user_id !== currentUserId);
-  return other?.profile?.display_name || "Чат";
+  return other?.profile?.display_name || "Chat";
 }
 
 function getConversationAvatar(conv: ConversationWithDetails, currentUserId: string) {
@@ -131,10 +130,10 @@ const ConversationItem = ({
     ? conv.last_message.type !== "text"
       ? `📎 ${conv.last_message.type}`
       : (conv.last_message.content || "").slice(0, 50)
-    : "Нет сообщений";
+    : "No messages";
 
   const time = conv.last_message
-    ? formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false, locale: ru })
+    ? formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false })
     : "";
 
   return (
