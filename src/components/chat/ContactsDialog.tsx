@@ -28,9 +28,9 @@ export const ContactsDialog = ({ open, onOpenChange, onStartChat }: ContactsDial
   const handleAddContact = async (userId: string) => {
     try {
       await addContact.mutateAsync(userId);
-      toast({ title: "Контакт добавлен" });
+      toast({ title: "Contact added" });
     } catch {
-      toast({ title: "Ошибка", description: "Контакт уже существует", variant: "destructive" });
+      toast({ title: "Error", description: "Contact already exists", variant: "destructive" });
     }
   };
 
@@ -41,7 +41,7 @@ export const ContactsDialog = ({ open, onOpenChange, onStartChat }: ContactsDial
       onStartChat(convId);
     } catch (err: any) {
       console.error("handleStartChat error:", err);
-      toast({ title: "Ошибка создания чата", description: err?.message || "Неизвестная ошибка", variant: "destructive" });
+      toast({ title: "Error creating chat", description: err?.message || "Unknown error", variant: "destructive" });
     }
   };
 
@@ -51,19 +51,19 @@ export const ContactsDialog = ({ open, onOpenChange, onStartChat }: ContactsDial
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Контакты</DialogTitle>
+          <DialogTitle>Contacts</DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="contacts">
           <TabsList className="w-full">
-            <TabsTrigger value="contacts" className="flex-1">Мои контакты</TabsTrigger>
-            <TabsTrigger value="search" className="flex-1">Поиск</TabsTrigger>
+            <TabsTrigger value="contacts" className="flex-1">My Contacts</TabsTrigger>
+            <TabsTrigger value="search" className="flex-1">Search</TabsTrigger>
           </TabsList>
 
           <TabsContent value="contacts">
             <ScrollArea className="h-[350px]">
-              {isLoading && <p className="p-4 text-center text-muted-foreground">Загрузка...</p>}
-              {contacts?.length === 0 && <p className="p-4 text-center text-muted-foreground">Нет контактов</p>}
+              {isLoading && <p className="p-4 text-center text-muted-foreground">Loading...</p>}
+              {contacts?.length === 0 && <p className="p-4 text-center text-muted-foreground">No contacts</p>}
               {contacts?.map((c) => (
                 <div key={c.id} className="flex items-center gap-3 px-2 py-2 hover:bg-accent rounded-lg">
                   <Avatar>
@@ -72,7 +72,7 @@ export const ContactsDialog = ({ open, onOpenChange, onStartChat }: ContactsDial
                   </Avatar>
                   <div className="flex-1">
                     <p className="font-medium">{c.profile.display_name}</p>
-                    <p className="text-xs text-muted-foreground">{c.profile.is_online ? "онлайн" : "оффлайн"}</p>
+                    <p className="text-xs text-muted-foreground">{c.profile.is_online ? "online" : "offline"}</p>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => handleStartChat(c.contact_id)}>
                     <MessageCircle className="h-4 w-4" />
@@ -88,7 +88,7 @@ export const ContactsDialog = ({ open, onOpenChange, onStartChat }: ContactsDial
           <TabsContent value="search">
             <div className="relative mb-3">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Поиск по имени..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
+              <Input placeholder="Search by name..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9" />
             </div>
             <ScrollArea className="h-[300px]">
               {searchResults?.map((u) => (
@@ -111,7 +111,7 @@ export const ContactsDialog = ({ open, onOpenChange, onStartChat }: ContactsDial
                 </div>
               ))}
               {searchQuery.length >= 2 && searchResults?.length === 0 && (
-                <p className="p-4 text-center text-muted-foreground">Никого не найдено</p>
+                <p className="p-4 text-center text-muted-foreground">No one found</p>
               )}
             </ScrollArea>
           </TabsContent>

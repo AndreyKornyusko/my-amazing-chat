@@ -30,11 +30,11 @@ export const NewGroupDialog = ({ open, onOpenChange, onCreated }: NewGroupDialog
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      toast({ title: "Введите название группы", variant: "destructive" });
+      toast({ title: "Enter a group name", variant: "destructive" });
       return;
     }
     if (selected.size === 0) {
-      toast({ title: "Выберите хотя бы одного участника", variant: "destructive" });
+      toast({ title: "Select at least one member", variant: "destructive" });
       return;
     }
     const convId = await createGroup.mutateAsync({ name, memberIds: Array.from(selected) });
@@ -48,10 +48,10 @@ export const NewGroupDialog = ({ open, onOpenChange, onCreated }: NewGroupDialog
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Новая группа</DialogTitle>
+          <DialogTitle>New Group</DialogTitle>
         </DialogHeader>
-        <Input placeholder="Название группы" value={name} onChange={(e) => setName(e.target.value)} className="mb-3" />
-        <p className="text-sm text-muted-foreground mb-2">Выберите участников:</p>
+        <Input placeholder="Group name" value={name} onChange={(e) => setName(e.target.value)} className="mb-3" />
+        <p className="text-sm text-muted-foreground mb-2">Select members:</p>
         <ScrollArea className="h-[300px]">
           {contacts?.map((c) => (
             <label key={c.id} className="flex cursor-pointer items-center gap-3 px-2 py-2 hover:bg-accent rounded-lg">
@@ -63,10 +63,10 @@ export const NewGroupDialog = ({ open, onOpenChange, onCreated }: NewGroupDialog
               <span className="font-medium">{c.profile.display_name}</span>
             </label>
           ))}
-          {contacts?.length === 0 && <p className="p-4 text-center text-muted-foreground">Сначала добавьте контакты</p>}
+          {contacts?.length === 0 && <p className="p-4 text-center text-muted-foreground">Add contacts first</p>}
         </ScrollArea>
         <Button onClick={handleCreate} disabled={createGroup.isPending} className="w-full mt-2">
-          {createGroup.isPending ? "Создание..." : `Создать группу (${selected.size})`}
+          {createGroup.isPending ? "Creating..." : `Create group (${selected.size})`}
         </Button>
       </DialogContent>
     </Dialog>
