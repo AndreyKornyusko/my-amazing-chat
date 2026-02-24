@@ -1,12 +1,11 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { useMessages, useSendMessage, useEditMessage, useDeleteMessage, useMarkAsRead, Message } from "@/hooks/useMessages";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useMessages, useSendMessage, useEditMessage, useDeleteMessage, useMarkAsRead, useUnreadMessageIds, Message } from "@/hooks/useMessages";
 import { useConversations, ConversationWithDetails } from "@/hooks/useConversations";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ArrowLeft, Send, Paperclip, X, Check, CheckCheck, Pencil, Trash2, Reply, Forward, Search, Play } from "lucide-react";
+import { ArrowLeft, ArrowDown, Send, Paperclip, X, Check, CheckCheck, Pencil, Trash2, Reply, Forward, Search, Play, Loader2 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -20,7 +19,8 @@ interface ChatWindowProps {
 
 export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const { user } = useAuth();
-  const { data: messages, isLoading } = useMessages(conversationId);
+  const { messages, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useMessages(conversationId);
+  const unreadIds = useUnreadMessageIds(conversationId);
   const { data: conversations } = useConversations();
   const sendMessage = useSendMessage();
   const editMessage = useEditMessage();
@@ -35,26 +35,161 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const topSentinelRef = useRef<HTMLDivElement>(null);
+  const unreadSeparatorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const prevScrollHeightRef = useRef<number>(0);
+  const initialScrollDone = useRef(false);
+  const readBatchRef = useRef<Set<string>>(new Set());
+  const readTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const conversation = conversations?.find((c) => c.id === conversationId);
 
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  // Mark messages as read
-  useEffect(() => {
-    if (!messages || !user || !conversationId) return;
-    const unread = messages
-      .filter((m) => m.sender_id !== user.id && !(m.read_by ?? []).includes(user.id))
-      .map((m) => m.id);
-    if (unread.length > 0) {
-      markAsRead.mutate({ messageIds: unread, conversationId });
+  // Compute first unread message ID for the separator
+  const firstUnreadId = useMemo(() => {
+    if (!messages || !user) return null;
+    for (const msg of messages) {
+      if (msg.sender_id !== user.id && unreadIds.has(msg.id)) {
+        return msg.id;
+      }
     }
-  }, [messages, user, conversationId]);
+    return null;
+  }, [messages, user, unreadIds]);
+
+  // Unread count for the badge
+  const unreadCount = unreadIds.size;
+
+  // Track scroll position to show/hide scroll-to-bottom button
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const threshold = 100;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+    setIsAtBottom(atBottom);
+  }, []);
+
+  // Initial scroll: to unread separator or bottom
+  useEffect(() => {
+    if (!messages || messages.length === 0 || initialScrollDone.current) return;
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    // Wait a tick for DOM to render
+    requestAnimationFrame(() => {
+      if (unreadSeparatorRef.current) {
+        unreadSeparatorRef.current.scrollIntoView({ block: "center" });
+      } else {
+        el.scrollTop = el.scrollHeight;
+      }
+      initialScrollDone.current = true;
+    });
+  }, [messages, firstUnreadId]);
+
+  // Reset initial scroll flag when conversation changes
+  useEffect(() => {
+    initialScrollDone.current = false;
+  }, [conversationId]);
+
+  // Auto-scroll to bottom when user sends a new message (is at bottom)
+  const prevMsgCountRef = useRef(0);
+  useEffect(() => {
+    if (!messages) return;
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    // If new messages arrived and user was at bottom, scroll down
+    if (messages.length > prevMsgCountRef.current && isAtBottom && initialScrollDone.current) {
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
+    }
+    prevMsgCountRef.current = messages.length;
+  }, [messages, isAtBottom]);
+
+  // Infinite scroll: observe top sentinel to load older messages
+  useEffect(() => {
+    const sentinel = topSentinelRef.current;
+    const container = scrollContainerRef.current;
+    if (!sentinel || !container) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          // Save scroll height before loading
+          prevScrollHeightRef.current = container.scrollHeight;
+          fetchNextPage();
+        }
+      },
+      { root: container, threshold: 0 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  // Preserve scroll position after loading older messages
+  useEffect(() => {
+    if (!isFetchingNextPage && prevScrollHeightRef.current > 0) {
+      const container = scrollContainerRef.current;
+      if (container) {
+        const newScrollHeight = container.scrollHeight;
+        const diff = newScrollHeight - prevScrollHeightRef.current;
+        container.scrollTop += diff;
+      }
+      prevScrollHeightRef.current = 0;
+    }
+  }, [isFetchingNextPage]);
+
+  // Read-on-scroll: IntersectionObserver for unread messages
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !user || !conversationId) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const msgId = (entry.target as HTMLElement).dataset.msgId;
+            if (msgId && unreadIds.has(msgId)) {
+              readBatchRef.current.add(msgId);
+
+              // Debounced batch mark-as-read
+              if (readTimerRef.current) clearTimeout(readTimerRef.current);
+              readTimerRef.current = setTimeout(() => {
+                const ids = Array.from(readBatchRef.current);
+                if (ids.length > 0) {
+                  markAsRead.mutate({ messageIds: ids, conversationId: conversationId! });
+                  readBatchRef.current.clear();
+                }
+              }, 500);
+            }
+          }
+        }
+      },
+      { root: container, threshold: 0.5 }
+    );
+
+    // Observe all unread message elements
+    const elements = container.querySelectorAll("[data-unread='true']");
+    elements.forEach((el) => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, [messages, unreadIds, user, conversationId, markAsRead]);
+
+  // Scroll to bottom handler
+  const scrollToBottom = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+
+    // Mark all unread as read
+    if (unreadIds.size > 0 && conversationId) {
+      markAsRead.mutate({ messageIds: Array.from(unreadIds), conversationId });
+    }
+  }, [unreadIds, conversationId, markAsRead]);
 
   const handleSend = async () => {
     if (!conversationId || !text.trim()) return;
@@ -158,32 +293,74 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
         </div>
       )}
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 px-4 py-2">
-        {isLoading && <div className="flex justify-center py-8 text-muted-foreground">Loading...</div>}
-        {filteredMessages.map((msg, i) => {
-          const prev = filteredMessages[i - 1];
-          const showDate = !prev || !isSameDay(new Date(prev.created_at), new Date(msg.created_at));
-
-          return (
-            <div key={msg.id}>
-              {showDate && <DateSeparator date={new Date(msg.created_at)} />}
-              <MessageBubble
-                message={msg}
-                isOwn={msg.sender_id === user?.id}
-                isGroup={conversation?.type === "group"}
-                onReply={() => setReplyTo(msg)}
-                onEdit={() => { setEditingMsg(msg); setText(msg.content ?? ""); }}
-                onDelete={() => deleteMessage.mutate({ id: msg.id, conversationId: conversationId! })}
-                onForward={() => setForwardMsg(msg)}
-                onMediaClick={(url) => setLightboxUrl(url)}
-                searchQuery={searchQuery}
-              />
+      {/* Messages area with scroll-to-bottom button */}
+      <div className="relative flex-1 overflow-hidden">
+        <div
+          ref={scrollContainerRef}
+          className="h-full overflow-y-auto px-4 py-2"
+          onScroll={handleScroll}
+        >
+          {/* Top sentinel for infinite scroll */}
+          {hasNextPage && <div ref={topSentinelRef} className="h-1" />}
+          {isFetchingNextPage && (
+            <div className="flex justify-center py-2">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
-          );
-        })}
-        <div ref={messagesEndRef} />
-      </ScrollArea>
+          )}
+
+          {isLoading && <div className="flex justify-center py-8 text-muted-foreground">Loading...</div>}
+
+          {filteredMessages.map((msg, i) => {
+            const prev = filteredMessages[i - 1];
+            const showDate = !prev || !isSameDay(new Date(prev.created_at), new Date(msg.created_at));
+            const showUnreadSeparator = msg.id === firstUnreadId;
+            const isUnread = user && msg.sender_id !== user.id && unreadIds.has(msg.id);
+
+            return (
+              <div
+                key={msg.id}
+                data-msg-id={msg.id}
+                data-unread={isUnread ? "true" : "false"}
+              >
+                {showDate && <DateSeparator date={new Date(msg.created_at)} />}
+                {showUnreadSeparator && (
+                  <div ref={unreadSeparatorRef} className="my-3 flex justify-center">
+                    <span className="rounded-full bg-primary/20 px-3 py-1 text-xs text-primary font-medium">
+                      Unread messages
+                    </span>
+                  </div>
+                )}
+                <MessageBubble
+                  message={msg}
+                  isOwn={msg.sender_id === user?.id}
+                  isGroup={conversation?.type === "group"}
+                  onReply={() => setReplyTo(msg)}
+                  onEdit={() => { setEditingMsg(msg); setText(msg.content ?? ""); }}
+                  onDelete={() => deleteMessage.mutate({ id: msg.id, conversationId: conversationId! })}
+                  onForward={() => setForwardMsg(msg)}
+                  onMediaClick={(url) => setLightboxUrl(url)}
+                  searchQuery={searchQuery}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Scroll-to-bottom button with unread badge */}
+        {!isAtBottom && (
+          <button
+            onClick={scrollToBottom}
+            className="absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-card border border-border shadow-lg transition-transform hover:scale-105 active:scale-95"
+          >
+            <ArrowDown className="h-5 w-5 text-foreground" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-2 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+          </button>
+        )}
+      </div>
 
       {/* Reply / Edit bar */}
       {(replyTo || editingMsg) && (
@@ -309,31 +486,15 @@ const MessageBubble = ({
 
         {/* Photo preview */}
         {(msg.type === "photo" && msg.file_url) && (
-          <div
-            className="mb-1 cursor-pointer overflow-hidden rounded-lg"
-            onClick={() => onMediaClick(msg.file_url!)}
-          >
-            <img
-              src={msg.file_url}
-              alt={msg.file_name || "photo"}
-              className="max-h-60 w-full object-cover transition-transform hover:scale-105"
-              loading="lazy"
-            />
+          <div className="mb-1 cursor-pointer overflow-hidden rounded-lg" onClick={() => onMediaClick(msg.file_url!)}>
+            <img src={msg.file_url} alt={msg.file_name || "photo"} className="max-h-60 w-full object-cover transition-transform hover:scale-105" loading="lazy" />
           </div>
         )}
 
         {/* Video preview with thumbnail */}
         {(msg.type === "video" && msg.file_url) && (
-          <div
-            className="relative mb-1 cursor-pointer overflow-hidden rounded-lg"
-            onClick={() => onMediaClick(msg.file_url!)}
-          >
-            <video
-              src={msg.file_url}
-              className="max-h-60 w-full object-cover"
-              preload="metadata"
-              muted
-            />
+          <div className="relative mb-1 cursor-pointer overflow-hidden rounded-lg" onClick={() => onMediaClick(msg.file_url!)}>
+            <video src={msg.file_url} className="max-h-60 w-full object-cover" preload="metadata" muted />
             <div className="absolute inset-0 flex items-center justify-center bg-black/30 transition-colors hover:bg-black/40">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg">
                 <Play className="h-6 w-6 text-foreground ml-0.5" fill="currentColor" />
