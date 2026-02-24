@@ -1,86 +1,78 @@
 
 
-# 💬 Чат-приложение в стиле Telegram
+## Infinite Scroll, Scroll-to-Bottom Button with Unread Counter, and Unread Separator
 
-## Обзор
-Полнофункциональное чат-приложение с поддержкой реального времени, личных и групповых чатов, обмена медиафайлами, голосовых сообщений и переключением светлой/тёмной темы. Backend на Supabase с Realtime подписками.
+### Overview
 
----
+This plan adds Telegram-style scrolling behavior to the chat:
+1. **Infinite scroll** -- messages load in pages (oldest first), more pages load as user scrolls up
+2. **Scroll-to-bottom button** with unread counter -- appears in the bottom-right corner above the input; clicking it scrolls to bottom and marks all as read
+3. **Unread messages separator** -- a visual divider ("Unread messages") shown between the last read message and the first unread message when entering a chat
+4. **Read-on-scroll** -- messages are marked as read as the user scrolls them into view using IntersectionObserver
 
-## 1. Аутентификация и профиль пользователя
-- Регистрация и вход через **Email + пароль**
-- Вход через **Google OAuth**
-- Сброс пароля по email
-- Профиль пользователя: имя, аватар, статус (онлайн/оффлайн/был в сети)
-- Редактирование своего профиля
+### Technical Details
 
-## 2. Список чатов (левая панель)
-- Список всех диалогов и групп с последним сообщением и временем
-- **Счётчик непрочитанных сообщений** на каждом чате
-- **Общий счётчик непрочитанных чатов** в заголовке
-- Поиск по чатам и контактам
-- Аватар собеседника / группы
-- Статус онлайн/оффлайн у контактов
+#### 1. `src/hooks/useMessages.ts` -- Paginated fetching
 
-## 3. Личные сообщения
-- Отправка текстовых сообщений в реальном времени (Supabase Realtime)
-- **Статусы доставки**: отправлено ✓, доставлено ✓✓, прочитано ✓✓ (синие)
-- **Редактирование** своих сообщений
-- **Удаление** своих сообщений
-- **Пересылка** сообщений в другие чаты
-- Ответ на конкретное сообщение (reply)
-- Отображение даты между группами сообщений
+- Replace the single `useQuery` that loads ALL messages with `useInfiniteQuery` from `@tanstack/react-query`
+- Each page fetches `PAGE_SIZE` (e.g. 30) messages ordered by `created_at DESC` with `.range(offset, offset + PAGE_SIZE - 1)`
+- The hook returns `{ data, fetchNextPage, hasNextPage, isFetchingNextPage }` (pages are reversed so oldest-first display works)
+- The enrichment loop (profiles, reply_to, reads) stays but operates per-page
+- Realtime subscription stays the same -- it invalidates the query on changes
+- Add a new exported function/hook `useUnreadMessageIds(conversationId)` that returns the set of unread message IDs for the current user (lightweight query of `message_reads` vs all messages from others)
 
-## 4. Групповые чаты
-- Создание группы с названием и аватаром
-- Добавление/удаление участников
-- Роли: создатель, администратор, участник
-- Все функции сообщений как в личных чатах
-- Информация о группе: список участников, настройки
+#### 2. `src/components/chat/ChatWindow.tsx` -- Main changes
 
-## 5. Контакты
-- Поиск пользователей по имени/email
-- Добавление в контакты
-- Список контактов с возможностью начать чат
-- Удаление из контактов
+**Replace `ScrollArea` with a native scrollable `div`** (needed for reliable `scrollTop` / `IntersectionObserver` access -- Radix `ScrollArea` wraps content in a Viewport that complicates imperative scroll control):
 
-## 6. Медиафайлы и вложения
-- Отправка **фото, видео и файлов** через Supabase Storage
-- Просмотр фото/видео по клику (лайтбокс)
-- Скачивание файлов
-- Превью изображений в чате
+```text
+<div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 py-2">
+  {/* sentinel for loading older messages */}
+  {hasNextPage && <div ref={topSentinelRef} className="h-1" />}
+  {isFetchingNextPage && <Spinner />}
+  {/* messages */}
+  ...
+</div>
+```
 
-## 7. Голосовые сообщения
-- Запись голосового сообщения через микрофон браузера
-- Воспроизведение голосовых сообщений с волновой визуализацией
-- Отображение длительности
+**Infinite scroll (load older messages on scroll up):**
+- Place an invisible sentinel `div` at the top of the messages list
+- Use `IntersectionObserver` on the sentinel; when it becomes visible, call `fetchNextPage()`
+- After loading, preserve scroll position so the view doesn't jump
 
-## 8. Поиск по сообщениям
-- Полнотекстовый поиск внутри чата
-- Подсветка найденных сообщений
-- Переход к найденному сообщению
+**Scroll-to-bottom button + unread badge:**
+- Track `isAtBottom` state by listening to the `scroll` event on the container
+- When `isAtBottom` is false, show a circular button with `ArrowDown` icon positioned `absolute bottom-4 right-4` inside a `relative` wrapper around the messages area (above the input bar)
+- Next to / on top of the button, show an unread count badge (count of messages from others not in `read_by` for the current user)
+- On click: `scrollContainerRef.current.scrollTo({ top: scrollContainerRef.current.scrollHeight, behavior: 'smooth' })` and call `markAsRead` for all unread messages
 
-## 9. Тёмная/светлая тема
-- Переключатель темы в настройках
-- Автоматическое определение системной темы
-- Сохранение выбора пользователя
+**Unread messages separator:**
+- Compute `firstUnreadId` -- the ID of the earliest message from another user that is not in `read_by`
+- Render a separator before that message:
+  ```text
+  <div className="my-3 flex justify-center">
+    <span className="rounded-full bg-primary/20 px-3 py-1 text-xs text-primary font-medium">
+      Unread messages
+    </span>
+  </div>
+  ```
+- On initial chat load, scroll to the unread separator instead of the very bottom, so the user sees context above the unread messages
 
-## 10. Адаптивный дизайн
-- Двухпанельный интерфейс на десктопе (список чатов + окно чата)
-- Мобильная версия с навигацией между экранами
-- Интерфейс в стиле Telegram с «пузырьками» сообщений
+**Read-on-scroll (IntersectionObserver):**
+- For each message bubble from another user that is not yet read, attach an `IntersectionObserver`
+- When a message enters the viewport for > 300ms, add it to a batch of IDs to mark as read
+- Debounce the `markAsRead` mutation call (e.g. 500ms) to batch multiple reads into one request
+- As messages are marked read, the unread counter on the scroll-to-bottom button updates
 
----
+#### 3. Files to modify
 
-## Структура базы данных (Supabase)
-- **profiles** — профили пользователей
-- **contacts** — связи между пользователями
-- **conversations** — диалоги и группы
-- **conversation_members** — участники чатов с ролями
-- **messages** — сообщения с типом (текст, фото, видео, файл, голос)
-- **message_reads** — статусы прочтения
-- **user_roles** — роли пользователей (отдельная таблица)
-- **Storage buckets** — для медиафайлов и аватаров
+| File | Changes |
+|------|---------|
+| `src/hooks/useMessages.ts` | Switch from `useQuery` to `useInfiniteQuery`; add pagination params; keep enrichment per page |
+| `src/components/chat/ChatWindow.tsx` | Replace `ScrollArea` with native div; add top sentinel + IntersectionObserver for infinite scroll; add bottom-right scroll button with unread badge; add unread separator; add per-message IntersectionObserver for read-on-scroll; remove old "mark all as read on mount" effect |
 
-Realtime подписки для мгновенного обновления сообщений, статусов и уведомлений.
+#### 4. All UI text and code comments will be in English
 
+- Button tooltip: none needed (icon only)
+- Separator text: "Unread messages"
+- All code comments in English
