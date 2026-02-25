@@ -1,16 +1,19 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useMessages, useSendMessage, useEditMessage, useDeleteMessage, useMarkAsRead, useUnreadMessageIds, Message } from "@/hooks/useMessages";
+import { useReactions, useToggleReaction, GroupedReaction } from "@/hooks/useReactions";
 import { useConversations, ConversationWithDetails } from "@/hooks/useConversations";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ArrowDown, Send, Paperclip, X, Check, CheckCheck, Pencil, Trash2, Reply, Forward, Search, Play, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowDown, Send, Paperclip, X, Check, CheckCheck, Pencil, Reply, Search, Play, Loader2 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ForwardDialog } from "./ForwardDialog";
 import { MediaLightbox } from "./MediaLightbox";
+import { MessageContextMenu } from "./MessageContextMenu";
+import { MessageReactions } from "./MessageReactions";
 
 interface ChatWindowProps {
   conversationId: string | null;
@@ -21,6 +24,8 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const { user } = useAuth();
   const { messages, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useMessages(conversationId);
   const unreadIds = useUnreadMessageIds(conversationId);
+  const reactionsMap = useReactions(conversationId);
+  const toggleReaction = useToggleReaction();
   const { data: conversations } = useConversations();
   const sendMessage = useSendMessage();
   const editMessage = useEditMessage();
@@ -59,10 +64,8 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
     return null;
   }, [messages, user, unreadIds]);
 
-  // Unread count for the badge
   const unreadCount = unreadIds.size;
 
-  // Track scroll position to show/hide scroll-to-bottom button
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
@@ -76,8 +79,6 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
     if (!messages || messages.length === 0 || initialScrollDone.current) return;
     const el = scrollContainerRef.current;
     if (!el) return;
-
-    // Wait a tick for DOM to render
     requestAnimationFrame(() => {
       if (unreadSeparatorRef.current) {
         unreadSeparatorRef.current.scrollIntoView({ block: "center" });
@@ -88,44 +89,33 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
     });
   }, [messages, firstUnreadId]);
 
-  // Reset initial scroll flag when conversation changes
-  useEffect(() => {
-    initialScrollDone.current = false;
-  }, [conversationId]);
+  useEffect(() => { initialScrollDone.current = false; }, [conversationId]);
 
-  // Auto-scroll to bottom when user sends a new message (is at bottom)
   const prevMsgCountRef = useRef(0);
   useEffect(() => {
     if (!messages) return;
     const el = scrollContainerRef.current;
     if (!el) return;
-
-    // If new messages arrived and user was at bottom, scroll down
     if (messages.length > prevMsgCountRef.current && isAtBottom && initialScrollDone.current) {
-      requestAnimationFrame(() => {
-        el.scrollTop = el.scrollHeight;
-      });
+      requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
     }
     prevMsgCountRef.current = messages.length;
   }, [messages, isAtBottom]);
 
-  // Infinite scroll: observe top sentinel to load older messages
+  // Infinite scroll
   useEffect(() => {
     const sentinel = topSentinelRef.current;
     const container = scrollContainerRef.current;
     if (!sentinel || !container) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
-          // Save scroll height before loading
           prevScrollHeightRef.current = container.scrollHeight;
           fetchNextPage();
         }
       },
       { root: container, threshold: 0 }
     );
-
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
@@ -135,19 +125,17 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
     if (!isFetchingNextPage && prevScrollHeightRef.current > 0) {
       const container = scrollContainerRef.current;
       if (container) {
-        const newScrollHeight = container.scrollHeight;
-        const diff = newScrollHeight - prevScrollHeightRef.current;
+        const diff = container.scrollHeight - prevScrollHeightRef.current;
         container.scrollTop += diff;
       }
       prevScrollHeightRef.current = 0;
     }
   }, [isFetchingNextPage]);
 
-  // Read-on-scroll: IntersectionObserver for unread messages
+  // Read-on-scroll
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container || !user || !conversationId) return;
-
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
@@ -155,8 +143,6 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
             const msgId = (entry.target as HTMLElement).dataset.msgId;
             if (msgId && unreadIds.has(msgId)) {
               readBatchRef.current.add(msgId);
-
-              // Debounced batch mark-as-read
               if (readTimerRef.current) clearTimeout(readTimerRef.current);
               readTimerRef.current = setTimeout(() => {
                 const ids = Array.from(readBatchRef.current);
@@ -171,21 +157,15 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
       },
       { root: container, threshold: 0.5 }
     );
-
-    // Observe all unread message elements
     const elements = container.querySelectorAll("[data-unread='true']");
     elements.forEach((el) => observer.observe(el));
-
     return () => observer.disconnect();
   }, [messages, unreadIds, user, conversationId, markAsRead]);
 
-  // Scroll to bottom handler
   const scrollToBottom = useCallback(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-
-    // Mark all unread as read
     if (unreadIds.size > 0 && conversationId) {
       markAsRead.mutate({ messageIds: Array.from(unreadIds), conversationId });
     }
@@ -193,14 +173,12 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
 
   const handleSend = async () => {
     if (!conversationId || !text.trim()) return;
-
     if (editingMsg) {
       editMessage.mutate({ id: editingMsg.id, content: text, conversationId });
       setEditingMsg(null);
       setText("");
       return;
     }
-
     sendMessage.mutate({
       conversation_id: conversationId,
       content: text,
@@ -213,7 +191,6 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !conversationId || !user) return;
-
     const ext = file.name.split(".").pop();
     const path = `${conversationId}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from("chat-media").upload(path, file);
@@ -221,11 +198,9 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
       toast({ title: "Upload error", description: error.message, variant: "destructive" });
       return;
     }
-
     const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
     const isImage = file.type.startsWith("image/");
     const isVideo = file.type.startsWith("video/");
-
     sendMessage.mutate({
       conversation_id: conversationId,
       content: file.name,
@@ -234,7 +209,6 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
       file_name: file.name,
       file_size: file.size,
     });
-
     e.target.value = "";
   };
 
@@ -243,6 +217,11 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
     if (!searchQuery) return messages;
     return messages.filter((m) => m.content?.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [messages, searchQuery]);
+
+  const handleReact = useCallback((messageId: string, emoji: string) => {
+    if (!conversationId) return;
+    toggleReaction.mutate({ messageId, emoji, conversationId });
+  }, [conversationId, toggleReaction]);
 
   if (!conversationId) {
     return (
@@ -293,21 +272,19 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
         </div>
       )}
 
-      {/* Messages area with scroll-to-bottom button */}
+      {/* Messages area */}
       <div className="relative flex-1 overflow-hidden">
         <div
           ref={scrollContainerRef}
           className="h-full overflow-y-auto px-4 py-2"
           onScroll={handleScroll}
         >
-          {/* Top sentinel for infinite scroll */}
           {hasNextPage && <div ref={topSentinelRef} className="h-1" />}
           {isFetchingNextPage && (
             <div className="flex justify-center py-2">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           )}
-
           {isLoading && <div className="flex justify-center py-8 text-muted-foreground">Loading...</div>}
 
           {filteredMessages.map((msg, i) => {
@@ -317,11 +294,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
             const isUnread = user && msg.sender_id !== user.id && unreadIds.has(msg.id);
 
             return (
-              <div
-                key={msg.id}
-                data-msg-id={msg.id}
-                data-unread={isUnread ? "true" : "false"}
-              >
+              <div key={msg.id} data-msg-id={msg.id} data-unread={isUnread ? "true" : "false"}>
                 {showDate && <DateSeparator date={new Date(msg.created_at)} />}
                 {showUnreadSeparator && (
                   <div ref={unreadSeparatorRef} className="my-3 flex justify-center">
@@ -339,6 +312,8 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
                   onDelete={() => deleteMessage.mutate({ id: msg.id, conversationId: conversationId! })}
                   onForward={() => setForwardMsg(msg)}
                   onMediaClick={(url) => setLightboxUrl(url)}
+                  onReact={(emoji) => handleReact(msg.id, emoji)}
+                  reactions={reactionsMap[msg.id] ?? []}
                   searchQuery={searchQuery}
                 />
               </div>
@@ -346,7 +321,6 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
           })}
         </div>
 
-        {/* Scroll-to-bottom button with unread badge */}
         {!isAtBottom && (
           <button
             onClick={scrollToBottom}
@@ -397,13 +371,8 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
       </div>
 
       {forwardMsg && (
-        <ForwardDialog
-          message={forwardMsg}
-          open={!!forwardMsg}
-          onOpenChange={() => setForwardMsg(null)}
-        />
+        <ForwardDialog message={forwardMsg} open={!!forwardMsg} onOpenChange={() => setForwardMsg(null)} />
       )}
-
       {lightboxUrl && <MediaLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
     </div>
   );
@@ -429,6 +398,8 @@ const MessageBubble = ({
   onDelete,
   onForward,
   onMediaClick,
+  onReact,
+  reactions,
   searchQuery,
 }: {
   message: Message;
@@ -439,10 +410,10 @@ const MessageBubble = ({
   onDelete: () => void;
   onForward: () => void;
   onMediaClick: (url: string) => void;
+  onReact: (emoji: string) => void;
+  reactions: GroupedReaction[];
   searchQuery: string;
 }) => {
-  const [showActions, setShowActions] = useState(false);
-
   if (msg.is_deleted) {
     return (
       <div className={`mb-1 flex ${isOwn ? "justify-end" : "justify-start"}`}>
@@ -464,82 +435,79 @@ const MessageBubble = ({
   };
 
   return (
-    <div
-      className={`group mb-1 flex ${isOwn ? "justify-end" : "justify-start"}`}
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
-    >
-      <div className={`relative max-w-[75%] rounded-2xl px-3 py-2 ${isOwn ? "bg-chat-bubble-out text-chat-bubble-out-foreground rounded-br-md" : "bg-chat-bubble-in text-chat-bubble-in-foreground rounded-bl-md"}`}>
-        {isGroup && !isOwn && (
-          <p className="mb-0.5 text-xs font-semibold text-primary">{msg.sender_profile?.display_name}</p>
-        )}
+    <div className={`mb-1 flex ${isOwn ? "justify-end" : "justify-start"}`}>
+      <div className="max-w-[75%]">
+        <MessageContextMenu
+          message={msg}
+          isOwn={isOwn}
+          onReply={onReply}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onForward={onForward}
+          onReact={onReact}
+        >
+          <div className={`relative rounded-2xl px-3 py-2 ${isOwn ? "bg-chat-bubble-out text-chat-bubble-out-foreground rounded-br-md" : "bg-chat-bubble-in text-chat-bubble-in-foreground rounded-bl-md"}`}>
+            {isGroup && !isOwn && (
+              <p className="mb-0.5 text-xs font-semibold text-primary">{msg.sender_profile?.display_name}</p>
+            )}
 
-        {msg.reply_to && (
-          <div className="mb-1 rounded border-l-2 border-primary bg-muted/50 px-2 py-1 text-xs">
-            {msg.reply_to.content?.slice(0, 60)}
-          </div>
-        )}
-
-        {msg.forwarded_from_id && (
-          <p className="mb-0.5 text-xs italic text-muted-foreground">↗ Forwarded message</p>
-        )}
-
-        {/* Photo preview */}
-        {(msg.type === "photo" && msg.file_url) && (
-          <div className="mb-1 cursor-pointer overflow-hidden rounded-lg" onClick={() => onMediaClick(msg.file_url!)}>
-            <img src={msg.file_url} alt={msg.file_name || "photo"} className="max-h-60 w-full object-cover transition-transform hover:scale-105" loading="lazy" />
-          </div>
-        )}
-
-        {/* Video preview with thumbnail */}
-        {(msg.type === "video" && msg.file_url) && (
-          <div className="relative mb-1 cursor-pointer overflow-hidden rounded-lg" onClick={() => onMediaClick(msg.file_url!)}>
-            <video src={msg.file_url} className="max-h-60 w-full object-cover" preload="metadata" muted />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/30 transition-colors hover:bg-black/40">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg">
-                <Play className="h-6 w-6 text-foreground ml-0.5" fill="currentColor" />
+            {msg.reply_to && (
+              <div className="mb-1 rounded border-l-2 border-primary bg-muted/50 px-2 py-1 text-xs">
+                {msg.reply_to.content?.slice(0, 60)}
               </div>
+            )}
+
+            {msg.forwarded_from_id && (
+              <p className="mb-0.5 text-xs italic text-muted-foreground">↗ Forwarded message</p>
+            )}
+
+            {(msg.type === "photo" && msg.file_url) && (
+              <div className="mb-1 cursor-pointer overflow-hidden rounded-lg" onClick={() => onMediaClick(msg.file_url!)}>
+                <img src={msg.file_url} alt={msg.file_name || "photo"} className="max-h-60 w-full object-cover transition-transform hover:scale-105" loading="lazy" />
+              </div>
+            )}
+
+            {(msg.type === "video" && msg.file_url) && (
+              <div className="relative mb-1 cursor-pointer overflow-hidden rounded-lg" onClick={() => onMediaClick(msg.file_url!)}>
+                <video src={msg.file_url} className="max-h-60 w-full object-cover" preload="metadata" muted />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30 transition-colors hover:bg-black/40">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg">
+                    <Play className="h-6 w-6 text-foreground ml-0.5" fill="currentColor" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {(msg.type === "file" && msg.file_url) && (
+              <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="mb-1 flex items-center gap-2 rounded bg-muted/50 p-2 text-sm hover:bg-muted">
+                📎 {msg.file_name || "File"}
+              </a>
+            )}
+
+            {(msg.type === "voice" && msg.file_url) && (
+              <audio src={msg.file_url} controls className="mb-1 w-full" />
+            )}
+
+            {msg.content && msg.type === "text" && (
+              <p className="text-sm whitespace-pre-wrap break-words">{highlightText(msg.content)}</p>
+            )}
+
+            <div className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${isOwn ? "text-chat-bubble-out-foreground/50" : "text-chat-bubble-in-foreground/50"}`}>
+              {msg.is_edited && <span>edited</span>}
+              <span>{time}</span>
+              {isOwn && (
+                hasReads ? <CheckCheck className="h-3 w-3 text-read" /> : <Check className="h-3 w-3" />
+              )}
             </div>
           </div>
-        )}
+        </MessageContextMenu>
 
-        {/* File attachment */}
-        {(msg.type === "file" && msg.file_url) && (
-          <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="mb-1 flex items-center gap-2 rounded bg-muted/50 p-2 text-sm hover:bg-muted">
-            📎 {msg.file_name || "File"}
-          </a>
-        )}
-
-        {/* Voice message */}
-        {(msg.type === "voice" && msg.file_url) && (
-          <audio src={msg.file_url} controls className="mb-1 w-full" />
-        )}
-
-        {msg.content && msg.type === "text" && (
-          <p className="text-sm whitespace-pre-wrap break-words">{highlightText(msg.content)}</p>
-        )}
-
-        <div className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${isOwn ? "text-chat-bubble-out-foreground/50" : "text-chat-bubble-in-foreground/50"}`}>
-          {msg.is_edited && <span>edited</span>}
-          <span>{time}</span>
-          {isOwn && (
-            hasReads ? <CheckCheck className="h-3 w-3 text-read" /> : <Check className="h-3 w-3" />
-          )}
-        </div>
-
-        {/* Actions */}
-        {showActions && (
-          <div className="absolute -top-8 right-0 flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5 shadow-md">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onReply}><Reply className="h-3.5 w-3.5" /></Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onForward}><Forward className="h-3.5 w-3.5" /></Button>
-            {isOwn && (
-              <>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onEdit}><Pencil className="h-3.5 w-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDelete}><Trash2 className="h-3.5 w-3.5 text-destructive" /></Button>
-              </>
-            )}
-          </div>
-        )}
+        {/* Reactions display */}
+        <MessageReactions
+          reactions={reactions}
+          onToggle={(emoji) => onReact(emoji)}
+          isOwn={isOwn}
+        />
       </div>
     </div>
   );
