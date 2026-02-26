@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useConversations, ConversationWithDetails } from "@/hooks/useConversations";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useProfile } from "@/hooks/useProfile";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Search, Moon, Sun, LogOut, Users, UserPlus } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ContactsDialog } from "./ContactsDialog";
 import { NewGroupDialog } from "./NewGroupDialog";
+import { UserProfileDialog } from "./UserProfileDialog";
 
 interface ChatSidebarProps {
   activeConversationId: string | null;
@@ -23,6 +25,8 @@ export const ChatSidebar = ({ activeConversationId, onSelectConversation }: Chat
   const [search, setSearch] = useState("");
   const [contactsOpen, setContactsOpen] = useState(false);
   const [groupOpen, setGroupOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const { data: profile } = useProfile();
 
   const totalUnread = useMemo(() => conversations?.reduce((sum, c) => sum + c.unread_count, 0) ?? 0, [conversations]);
 
@@ -40,6 +44,10 @@ export const ChatSidebar = ({ activeConversationId, onSelectConversation }: Chat
     <>
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
+          <Avatar className="h-8 w-8 cursor-pointer" onClick={() => setProfileOpen(true)}>
+            <AvatarImage src={profile?.avatar_url ?? undefined} />
+            <AvatarFallback className="text-xs">{(profile?.display_name ?? "?").slice(0, 2).toUpperCase()}</AvatarFallback>
+          </Avatar>
           <h1 className="text-lg font-bold">Chats</h1>
           {totalUnread > 0 && (
             <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
@@ -90,6 +98,7 @@ export const ChatSidebar = ({ activeConversationId, onSelectConversation }: Chat
 
       <ContactsDialog open={contactsOpen} onOpenChange={setContactsOpen} onStartChat={onSelectConversation} />
       <NewGroupDialog open={groupOpen} onOpenChange={setGroupOpen} onCreated={onSelectConversation} />
+      {user && <UserProfileDialog open={profileOpen} onOpenChange={setProfileOpen} userId={user.id} />}
     </>
   );
 };

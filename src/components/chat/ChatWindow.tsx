@@ -14,6 +14,7 @@ import { ForwardDialog } from "./ForwardDialog";
 import { MediaLightbox } from "./MediaLightbox";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageReactions } from "./MessageReactions";
+import { UserProfileDialog } from "./UserProfileDialog";
 
 interface ChatWindowProps {
   conversationId: string | null;
@@ -41,6 +42,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
@@ -244,12 +246,23 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
             <ArrowLeft className="h-5 w-5" />
           </Button>
         )}
-        <Avatar className="h-10 w-10">
+        <Avatar className="h-10 w-10 cursor-pointer" onClick={() => {
+          if (conversation?.type === "private" && otherUser) {
+            setProfileUserId(otherUser.user_id);
+          }
+        }}>
           <AvatarImage src={chatAvatar ?? undefined} />
           <AvatarFallback>{chatName.slice(0, 2).toUpperCase()}</AvatarFallback>
         </Avatar>
         <div className="flex-1">
-          <h2 className="font-semibold">{chatName}</h2>
+          <h2
+            className="font-semibold cursor-pointer hover:underline"
+            onClick={() => {
+              if (conversation?.type === "private" && otherUser) {
+                setProfileUserId(otherUser.user_id);
+              }
+            }}
+          >{chatName}</h2>
           <p className="text-xs text-muted-foreground">
             {conversation?.type === "group"
               ? `${conversation.members.length} members`
@@ -315,6 +328,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
                   onReact={(emoji) => handleReact(msg.id, emoji)}
                   reactions={reactionsMap[msg.id] ?? []}
                   searchQuery={searchQuery}
+                  onProfileClick={(uid) => setProfileUserId(uid)}
                 />
               </div>
             );
@@ -374,6 +388,13 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
         <ForwardDialog message={forwardMsg} open={!!forwardMsg} onOpenChange={() => setForwardMsg(null)} />
       )}
       {lightboxUrl && <MediaLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
+      {profileUserId && (
+        <UserProfileDialog
+          open={!!profileUserId}
+          onOpenChange={(open) => { if (!open) setProfileUserId(null); }}
+          userId={profileUserId}
+        />
+      )}
     </div>
   );
 };
@@ -401,6 +422,7 @@ const MessageBubble = ({
   onReact,
   reactions,
   searchQuery,
+  onProfileClick,
 }: {
   message: Message;
   isOwn: boolean;
@@ -413,6 +435,7 @@ const MessageBubble = ({
   onReact: (emoji: string) => void;
   reactions: GroupedReaction[];
   searchQuery: string;
+  onProfileClick?: (userId: string) => void;
 }) => {
   if (msg.is_deleted) {
     return (
@@ -448,7 +471,10 @@ const MessageBubble = ({
         >
           <div className={`relative rounded-2xl px-3 py-2 ${isOwn ? "bg-chat-bubble-out text-chat-bubble-out-foreground rounded-br-md" : "bg-chat-bubble-in text-chat-bubble-in-foreground rounded-bl-md"}`}>
             {isGroup && !isOwn && (
-              <p className="mb-0.5 text-xs font-semibold text-primary">{msg.sender_profile?.display_name}</p>
+              <p
+                className="mb-0.5 text-xs font-semibold text-primary cursor-pointer hover:underline"
+                onClick={() => onProfileClick?.(msg.sender_id)}
+              >{msg.sender_profile?.display_name}</p>
             )}
 
             {msg.reply_to && (
