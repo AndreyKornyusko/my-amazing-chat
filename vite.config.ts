@@ -18,4 +18,16 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  define: {
+    "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(
+      process.env.VITE_SUPABASE_URL ?? "https://ptxkuzbaehubuymciags.supabase.co"
+    ),
+    "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(
+      process.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0eGt1emJhZWh1YnV5bWNpYWdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1NDU4NjAsImV4cCI6MjA4NzEyMTg2MH0.eu4TsUmy-ub3_VNJj3xDZWKCSB2VU2NmIpqrYcn-aJU"
+    ),
+    "import.meta.env.VITE_SUPABASE_PROJECT_ID": JSON.stringify(
+      process.env.VITE_SUPABASE_PROJECT_ID ?? "ptxkuzbaehubuymciags"
+    ),
+  },
 }));
