@@ -10,6 +10,10 @@ export type Message = Tables<"messages"> & {
   sender_profile?: { display_name: string; avatar_url: string | null };
   reply_to?: { content: string | null; sender_id: string } | null;
   read_by?: string[];
+  _optimistic?: boolean;
+  _status?: "sending" | "failed";
+  _errorMsg?: string;
+  _tempId?: string;
 };
 
 /**
@@ -171,19 +175,93 @@ export const useSendMessage = () => {
       file_size?: number;
       reply_to_id?: string;
       forwarded_from_id?: string;
+      _tempId?: string; // internal, not sent to DB
     }) => {
       if (!user) throw new Error("Not authenticated");
-      const { error } = await supabase.from("messages").insert({
-        ...msg,
+      const { _tempId, ...dbMsg } = msg;
+      const { data, error } = await supabase.from("messages").insert({
+        ...dbMsg,
         sender_id: user.id,
-        type: msg.type || "text",
-      });
+        type: dbMsg.type || "text",
+      }).select("*").single();
       if (error) throw error;
+      return { data, _tempId };
     },
-    onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ["messages", vars.conversation_id] });
+    onMutate: async (msg) => {
+      if (!user) return;
+      const queryKey = ["messages", msg.conversation_id];
+      await qc.cancelQueries({ queryKey });
+
+      const previous = qc.getQueryData(queryKey);
+
+      const optimisticMessage: Message = {
+        id: msg._tempId || `temp-${crypto.randomUUID()}`,
+        conversation_id: msg.conversation_id,
+        sender_id: user.id,
+        content: msg.content ?? null,
+        type: (msg.type || "text") as any,
+        file_url: msg.file_url ?? null,
+        file_name: msg.file_name ?? null,
+        file_size: msg.file_size ?? null,
+        reply_to_id: msg.reply_to_id ?? null,
+        forwarded_from_id: msg.forwarded_from_id ?? null,
+        is_edited: false,
+        is_deleted: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        sender_profile: { display_name: user.user_metadata?.display_name || "You", avatar_url: null },
+        read_by: [],
+        reply_to: null,
+        _optimistic: true as any,
+        _status: "sending" as any,
+      };
+
+      // Add to the last page of infinite query
+      qc.setQueryData(queryKey, (old: any) => {
+        if (!old?.pages) return old;
+        const newPages = [...old.pages];
+        // Messages in pages are newest-first, add at beginning of first page
+        newPages[0] = [optimisticMessage, ...(newPages[0] || [])];
+        return { ...old, pages: newPages };
+      });
+
+      return { previous, tempId: optimisticMessage.id };
+    },
+    onSuccess: (result, vars) => {
+      const queryKey = ["messages", vars.conversation_id];
+      // Replace optimistic message with real one
+      qc.setQueryData(queryKey, (old: any) => {
+        if (!old?.pages) return old;
+        const realMsg: Message = {
+          ...result.data,
+          sender_profile: { display_name: user!.user_metadata?.display_name || "You", avatar_url: null },
+          read_by: [],
+          reply_to: null,
+        };
+        return {
+          ...old,
+          pages: old.pages.map((page: Message[]) =>
+            page.map((m: any) => (m.id === result._tempId || m.id === vars._tempId) ? realMsg : m)
+          ),
+        };
+      });
       qc.invalidateQueries({ queryKey: ["conversations"] });
-      qc.invalidateQueries({ queryKey: ["unread-ids", vars.conversation_id] });
+    },
+    onError: (_err, vars, context) => {
+      const queryKey = ["messages", vars.conversation_id];
+      // Mark the optimistic message as failed instead of rolling back
+      qc.setQueryData(queryKey, (old: any) => {
+        if (!old?.pages) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page: Message[]) =>
+            page.map((m: any) => (m.id === context?.tempId || m.id === vars._tempId) 
+              ? { ...m, _status: "failed", _errorMsg: _err instanceof Error ? _err.message : "Send failed" }
+              : m
+            )
+          ),
+        };
+      });
     },
   });
 };
