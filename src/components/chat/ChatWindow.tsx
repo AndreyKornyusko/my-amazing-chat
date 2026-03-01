@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useMessages, useSendMessage, useEditMessage, useDeleteMessage, useMarkAsRead, useUnreadMessageIds, Message } from "@/hooks/useMessages";
 import { useReactions, useToggleReaction, GroupedReaction } from "@/hooks/useReactions";
 import { useConversations, ConversationWithDetails } from "@/hooks/useConversations";
@@ -33,6 +34,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const deleteMessage = useDeleteMessage();
   const markAsRead = useMarkAsRead();
   const { toast } = useToast();
+  const qc = useQueryClient();
 
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<Message | null>(null);
@@ -43,17 +45,6 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
-
-  type PendingMessage = {
-    tempId: string;
-    content: string;
-    reply_to_id?: string;
-    reply_to?: Message["reply_to"];
-    status: "sending" | "failed";
-    created_at: string;
-    errorMsg?: string;
-  };
-  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
@@ -192,74 +183,41 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
       setText("");
       return;
     }
-    const tempId = `pending-${crypto.randomUUID()}`;
-    const msgContent = text;
-    const msgReplyToId = replyTo?.id;
-    const msgReplyTo = replyTo ? { content: replyTo.content, sender_id: replyTo.sender_id } : null;
-
-    setPendingMessages((prev) => [
-      ...prev,
-      {
-        tempId,
-        content: msgContent,
-        reply_to_id: msgReplyToId,
-        reply_to: msgReplyTo,
-        status: "sending",
-        created_at: new Date().toISOString(),
-      },
-    ]);
+    const tempId = `temp-${crypto.randomUUID()}`;
+    sendMessage.mutate({
+      conversation_id: conversationId,
+      content: text,
+      reply_to_id: replyTo?.id,
+      _tempId: tempId,
+    });
     setText("");
     setReplyTo(null);
-
-    sendMessage.mutate(
-      {
-        conversation_id: conversationId,
-        content: msgContent,
-        reply_to_id: msgReplyToId,
-      },
-      {
-        onSuccess: () => {
-          setPendingMessages((prev) => prev.filter((p) => p.tempId !== tempId));
-        },
-        onError: (error) => {
-          setPendingMessages((prev) =>
-            prev.map((p) =>
-              p.tempId === tempId ? { ...p, status: "failed", errorMsg: error instanceof Error ? error.message : "Send failed" } : p
-            )
-          );
-        },
-      }
-    );
   };
 
-  const handleRetry = (pending: PendingMessage) => {
+  const handleRetryMessage = (msg: Message) => {
     if (!conversationId) return;
-    setPendingMessages((prev) =>
-      prev.map((p) => (p.tempId === pending.tempId ? { ...p, status: "sending", errorMsg: undefined } : p))
-    );
-    sendMessage.mutate(
-      {
-        conversation_id: conversationId,
-        content: pending.content,
-        reply_to_id: pending.reply_to_id,
-      },
-      {
-        onSuccess: () => {
-          setPendingMessages((prev) => prev.filter((p) => p.tempId !== pending.tempId));
-        },
-        onError: (error) => {
-          setPendingMessages((prev) =>
-            prev.map((p) =>
-              p.tempId === pending.tempId ? { ...p, status: "failed", errorMsg: error instanceof Error ? error.message : "Send failed" } : p
-            )
-          );
-        },
-      }
-    );
+    // Remove the failed optimistic message from cache first
+    const queryKey = ["messages", conversationId];
+    qc.setQueryData(queryKey, (old: any) => {
+      if (!old?.pages) return old;
+      return { ...old, pages: old.pages.map((page: Message[]) => page.filter((m: any) => m.id !== msg.id)) };
+    });
+    // Re-send
+    sendMessage.mutate({
+      conversation_id: conversationId,
+      content: msg.content || "",
+      reply_to_id: msg.reply_to_id || undefined,
+      _tempId: `temp-${crypto.randomUUID()}`,
+    });
   };
 
-  const handleCancelPending = (tempId: string) => {
-    setPendingMessages((prev) => prev.filter((p) => p.tempId !== tempId));
+  const handleCancelMessage = (msgId: string) => {
+    if (!conversationId) return;
+    const queryKey = ["messages", conversationId];
+    qc.setQueryData(queryKey, (old: any) => {
+      if (!old?.pages) return old;
+      return { ...old, pages: old.pages.map((page: Message[]) => page.filter((m: any) => m.id !== msgId)) };
+    });
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -401,21 +359,13 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
                   reactions={reactionsMap[msg.id] ?? []}
                   searchQuery={searchQuery}
                   onProfileClick={(uid) => setProfileUserId(uid)}
+                  onRetry={msg._optimistic && msg._status === "failed" ? () => handleRetryMessage(msg) : undefined}
+                  onCancel={msg._optimistic && msg._status === "failed" ? () => handleCancelMessage(msg.id) : undefined}
                 />
               </div>
             );
           })}
 
-          {/* Pending (optimistic) messages */}
-          {pendingMessages.map((pm) => (
-            <PendingMessageBubble
-              key={pm.tempId}
-              pending={pm}
-              userName={user?.user_metadata?.display_name || "You"}
-              onRetry={() => handleRetry(pm)}
-              onCancel={() => handleCancelPending(pm.tempId)}
-            />
-          ))}
         </div>
 
         {!isAtBottom && (
@@ -506,6 +456,8 @@ const MessageBubble = ({
   reactions,
   searchQuery,
   onProfileClick,
+  onRetry,
+  onCancel,
 }: {
   message: Message;
   isOwn: boolean;
@@ -519,6 +471,8 @@ const MessageBubble = ({
   reactions: GroupedReaction[];
   searchQuery: string;
   onProfileClick?: (userId: string) => void;
+  onRetry?: () => void;
+  onCancel?: () => void;
 }) => {
   if (msg.is_deleted) {
     return (
@@ -605,11 +559,28 @@ const MessageBubble = ({
               {msg.is_edited && <span>edited</span>}
               <span>{time}</span>
               {isOwn && (
-                hasReads ? <CheckCheck className="h-3 w-3 text-read" /> : <Check className="h-3 w-3" />
+                msg._optimistic && msg._status === "sending"
+                  ? <Loader2 className="h-3 w-3 animate-spin" />
+                  : msg._optimistic && msg._status === "failed"
+                  ? <AlertCircle className="h-3 w-3 text-destructive" />
+                  : hasReads ? <CheckCheck className="h-3 w-3 text-read" /> : <Check className="h-3 w-3" />
               )}
             </div>
           </div>
         </MessageContextMenu>
+
+        {/* Failed message actions */}
+        {msg._optimistic && msg._status === "failed" && (
+          <div className="mt-1 flex items-center justify-end gap-1">
+            <span className="text-[11px] text-destructive mr-1">Not sent</span>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1 text-primary hover:text-primary" onClick={onRetry}>
+              <RotateCcw className="h-3 w-3" />Retry
+            </Button>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs gap-1 text-destructive hover:text-destructive" onClick={onCancel}>
+              <Trash2 className="h-3 w-3" />Cancel
+            </Button>
+          </div>
+        )}
 
         {/* Reactions display */}
         <MessageReactions
@@ -617,70 +588,6 @@ const MessageBubble = ({
           onToggle={(emoji) => onReact(emoji)}
           isOwn={isOwn}
         />
-      </div>
-    </div>
-  );
-};
-
-const PendingMessageBubble = ({
-  pending,
-  userName,
-  onRetry,
-  onCancel,
-}: {
-  pending: { tempId: string; content: string; reply_to?: { content: string | null; sender_id: string } | null; status: "sending" | "failed"; created_at: string; errorMsg?: string };
-  userName: string;
-  onRetry: () => void;
-  onCancel: () => void;
-}) => {
-  const time = format(new Date(pending.created_at), "HH:mm");
-  const isFailed = pending.status === "failed";
-
-  return (
-    <div className="mb-1 flex justify-end">
-      <div className="max-w-[75%]">
-        <div className={`relative rounded-2xl rounded-br-md px-3 py-2 bg-chat-bubble-out text-chat-bubble-out-foreground ${isFailed ? "opacity-80" : ""}`}>
-          {pending.reply_to && (
-            <div className="mb-1 rounded border-l-2 border-primary bg-muted/50 px-2 py-1 text-xs">
-              {pending.reply_to.content?.slice(0, 60)}
-            </div>
-          )}
-
-          <p className="text-sm whitespace-pre-wrap break-words">{pending.content}</p>
-
-          <div className="mt-0.5 flex items-center justify-end gap-1 text-[10px] text-chat-bubble-out-foreground/50">
-            <span>{time}</span>
-            {isFailed ? (
-              <AlertCircle className="h-3 w-3 text-destructive" />
-            ) : (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            )}
-          </div>
-        </div>
-
-        {isFailed && (
-          <div className="mt-1 flex items-center justify-end gap-1">
-            <span className="text-[11px] text-destructive mr-1">Not sent</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs gap-1 text-primary hover:text-primary"
-              onClick={onRetry}
-            >
-              <RotateCcw className="h-3 w-3" />
-              Retry
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 px-2 text-xs gap-1 text-destructive hover:text-destructive"
-              onClick={onCancel}
-            >
-              <Trash2 className="h-3 w-3" />
-              Cancel
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );
