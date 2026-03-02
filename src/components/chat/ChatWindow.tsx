@@ -384,23 +384,33 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
                     )}
                     <div className={`mb-1 flex ${isOwn ? "justify-end" : "justify-start"}`}>
                       <div className="max-w-[75%]">
-                        <div className={`relative rounded-2xl px-1 py-1 ${isOwn ? "bg-chat-bubble-out text-chat-bubble-out-foreground rounded-br-md" : "bg-chat-bubble-in text-chat-bubble-in-foreground rounded-bl-md"}`}>
-                          {conversation?.type === "group" && !isOwn && (
-                            <p className="mb-0.5 px-2 text-xs font-semibold text-primary cursor-pointer hover:underline"
-                               onClick={() => setProfileUserId(firstMsg.sender_id)}>
-                              {firstMsg.sender_profile?.display_name}
-                            </p>
-                          )}
-                          <PhotoGrid
-                            photos={photos}
-                            onPhotoClick={(idx) => { setSliderPhotos(photos); setSliderIndex(idx); }}
-                          />
-                          <div className={`mt-0.5 px-2 flex items-center justify-end gap-1 text-[10px] ${isOwn ? "text-chat-bubble-out-foreground/50" : "text-chat-bubble-in-foreground/50"}`}>
-                            <span>{photos.length} photos</span>
-                            <span>{time}</span>
-                            {isOwn && <Check className="h-3 w-3" />}
+                        <MessageContextMenu
+                          message={firstMsg}
+                          isOwn={isOwn}
+                          onReply={() => setReplyTo(firstMsg)}
+                          onEdit={() => {}}
+                          onDelete={() => group.msgs.forEach(m => deleteMessage.mutate({ id: m.id, conversationId: conversationId! }))}
+                          onForward={() => setForwardMsg(firstMsg)}
+                          onReact={(emoji) => handleReact(firstMsg.id, emoji)}
+                        >
+                          <div className={`relative rounded-2xl px-1 py-1 ${isOwn ? "bg-chat-bubble-out text-chat-bubble-out-foreground rounded-br-md" : "bg-chat-bubble-in text-chat-bubble-in-foreground rounded-bl-md"}`}>
+                            {conversation?.type === "group" && !isOwn && (
+                              <p className="mb-0.5 px-2 text-xs font-semibold text-primary cursor-pointer hover:underline"
+                                 onClick={() => setProfileUserId(firstMsg.sender_id)}>
+                                {firstMsg.sender_profile?.display_name}
+                              </p>
+                            )}
+                            <PhotoGrid
+                              photos={photos}
+                              onPhotoClick={(idx) => { setSliderPhotos(photos); setSliderIndex(idx); }}
+                            />
+                            <div className={`mt-0.5 px-2 flex items-center justify-end gap-1 text-[10px] ${isOwn ? "text-chat-bubble-out-foreground/50" : "text-chat-bubble-in-foreground/50"}`}>
+                              <span>{photos.length} photos</span>
+                              <span>{time}</span>
+                              {isOwn && <Check className="h-3 w-3" />}
+                            </div>
                           </div>
-                        </div>
+                        </MessageContextMenu>
                       </div>
                     </div>
                   </div>
