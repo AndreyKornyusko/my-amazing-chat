@@ -221,26 +221,34 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !conversationId || !user) return;
-    const ext = file.name.split(".").pop();
-    const path = `${conversationId}/${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage.from("chat-media").upload(path, file);
-    if (error) {
-      toast({ title: "Upload error", description: error.message, variant: "destructive" });
-      return;
+    const files = e.target.files;
+    if (!files || files.length === 0 || !conversationId || !user) return;
+
+    const fileList = Array.from(files).slice(0, 7);
+    if (files.length > 7) {
+      toast({ title: "Limit exceeded", description: "You can upload up to 7 photos at once", variant: "destructive" });
     }
-    const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
-    const isImage = file.type.startsWith("image/");
-    const isVideo = file.type.startsWith("video/");
-    sendMessage.mutate({
-      conversation_id: conversationId,
-      content: file.name,
-      type: isImage ? "photo" : isVideo ? "video" : "file",
-      file_url: urlData.publicUrl,
-      file_name: file.name,
-      file_size: file.size,
-    });
+
+    for (const file of fileList) {
+      const ext = file.name.split(".").pop();
+      const path = `${conversationId}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("chat-media").upload(path, file);
+      if (error) {
+        toast({ title: "Upload error", description: `${file.name}: ${error.message}`, variant: "destructive" });
+        continue;
+      }
+      const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
+      const isImage = file.type.startsWith("image/");
+      const isVideo = file.type.startsWith("video/");
+      sendMessage.mutate({
+        conversation_id: conversationId,
+        content: file.name,
+        type: isImage ? "photo" : isVideo ? "video" : "file",
+        file_url: urlData.publicUrl,
+        file_name: file.name,
+        file_size: file.size,
+      });
+    }
     e.target.value = "";
   };
 
@@ -401,7 +409,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
 
       {/* Input */}
       <div className="flex items-center gap-2 border-t border-border px-4 py-3">
-        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} multiple accept="image/*,video/*,application/*" />
         <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()}>
           <Paperclip className="h-5 w-5" />
         </Button>
