@@ -13,6 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ForwardDialog } from "./ForwardDialog";
 import { MediaLightbox } from "./MediaLightbox";
+import { MediaSlider } from "./MediaSlider";
+import { PhotoGrid } from "./PhotoGrid";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageReactions } from "./MessageReactions";
 import { UserProfileDialog } from "./UserProfileDialog";
@@ -43,6 +45,8 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [sliderPhotos, setSliderPhotos] = useState<{ url: string; name?: string }[] | null>(null);
+  const [sliderIndex, setSliderIndex] = useState(0);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
@@ -338,41 +342,108 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
           )}
           {isLoading && <div className="flex justify-center py-8 text-muted-foreground">Loading...</div>}
 
-          {filteredMessages.map((msg, i) => {
-            const prev = filteredMessages[i - 1];
-            const showDate = !prev || !isSameDay(new Date(prev.created_at), new Date(msg.created_at));
-            const showUnreadSeparator = msg.id === firstUnreadId;
-            const isUnread = user && msg.sender_id !== user.id && unreadIds.has(msg.id);
+          {(() => {
+            // Group consecutive photo messages from same sender within 10s
+            const groups: { msgs: typeof filteredMessages; isPhotoGroup: boolean }[] = [];
+            for (let i = 0; i < filteredMessages.length; i++) {
+              const msg = filteredMessages[i];
+              const lastGroup = groups[groups.length - 1];
+              if (
+                lastGroup?.isPhotoGroup &&
+                msg.type === "photo" &&
+                msg.file_url &&
+                msg.sender_id === lastGroup.msgs[0].sender_id &&
+                Math.abs(new Date(msg.created_at).getTime() - new Date(lastGroup.msgs[lastGroup.msgs.length - 1].created_at).getTime()) < 10000
+              ) {
+                lastGroup.msgs.push(msg);
+              } else {
+                const isPhoto = msg.type === "photo" && !!msg.file_url;
+                groups.push({ msgs: [msg], isPhotoGroup: isPhoto });
+              }
+            }
 
-            return (
-              <div key={msg.id} data-msg-id={msg.id} data-unread={isUnread ? "true" : "false"}>
-                {showDate && <DateSeparator date={new Date(msg.created_at)} />}
-                {showUnreadSeparator && (
-                  <div ref={unreadSeparatorRef} className="my-3 flex justify-center">
-                    <span className="rounded-full bg-primary/20 px-3 py-1 text-xs text-primary font-medium">
-                      Unread messages
-                    </span>
+            return groups.map((group) => {
+              if (group.isPhotoGroup && group.msgs.length > 1) {
+                // Render as photo grid
+                const firstMsg = group.msgs[0];
+                const lastMsg = group.msgs[group.msgs.length - 1];
+                const isOwn = firstMsg.sender_id === user?.id;
+                const prev = filteredMessages[filteredMessages.indexOf(firstMsg) - 1];
+                const showDate = !prev || !isSameDay(new Date(prev.created_at), new Date(firstMsg.created_at));
+                const showUnreadSep = group.msgs.some(m => m.id === firstUnreadId);
+                const photos = group.msgs.map(m => ({ url: m.file_url!, name: m.file_name || undefined }));
+                const time = format(new Date(lastMsg.created_at), "HH:mm");
+
+                return (
+                  <div key={firstMsg.id} data-msg-id={firstMsg.id}>
+                    {showDate && <DateSeparator date={new Date(firstMsg.created_at)} />}
+                    {showUnreadSep && (
+                      <div ref={unreadSeparatorRef} className="my-3 flex justify-center">
+                        <span className="rounded-full bg-primary/20 px-3 py-1 text-xs text-primary font-medium">Unread messages</span>
+                      </div>
+                    )}
+                    <div className={`mb-1 flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                      <div className="max-w-[75%]">
+                        <div className={`relative rounded-2xl px-1 py-1 ${isOwn ? "bg-chat-bubble-out text-chat-bubble-out-foreground rounded-br-md" : "bg-chat-bubble-in text-chat-bubble-in-foreground rounded-bl-md"}`}>
+                          {conversation?.type === "group" && !isOwn && (
+                            <p className="mb-0.5 px-2 text-xs font-semibold text-primary cursor-pointer hover:underline"
+                               onClick={() => setProfileUserId(firstMsg.sender_id)}>
+                              {firstMsg.sender_profile?.display_name}
+                            </p>
+                          )}
+                          <PhotoGrid
+                            photos={photos}
+                            onPhotoClick={(idx) => { setSliderPhotos(photos); setSliderIndex(idx); }}
+                          />
+                          <div className={`mt-0.5 px-2 flex items-center justify-end gap-1 text-[10px] ${isOwn ? "text-chat-bubble-out-foreground/50" : "text-chat-bubble-in-foreground/50"}`}>
+                            <span>{photos.length} photos</span>
+                            <span>{time}</span>
+                            {isOwn && <Check className="h-3 w-3" />}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                )}
-                <MessageBubble
-                  message={msg}
-                  isOwn={msg.sender_id === user?.id}
-                  isGroup={conversation?.type === "group"}
-                  onReply={() => setReplyTo(msg)}
-                  onEdit={() => { setEditingMsg(msg); setText(msg.content ?? ""); }}
-                  onDelete={() => deleteMessage.mutate({ id: msg.id, conversationId: conversationId! })}
-                  onForward={() => setForwardMsg(msg)}
-                  onMediaClick={(url) => setLightboxUrl(url)}
-                  onReact={(emoji) => handleReact(msg.id, emoji)}
-                  reactions={reactionsMap[msg.id] ?? []}
-                  searchQuery={searchQuery}
-                  onProfileClick={(uid) => setProfileUserId(uid)}
-                  onRetry={msg._optimistic && msg._status === "failed" ? () => handleRetryMessage(msg) : undefined}
-                  onCancel={msg._optimistic && msg._status === "failed" ? () => handleCancelMessage(msg.id) : undefined}
-                />
-              </div>
-            );
-          })}
+                );
+              }
+
+              // Render individual messages normally
+              return group.msgs.map((msg) => {
+                const idx = filteredMessages.indexOf(msg);
+                const prev = filteredMessages[idx - 1];
+                const showDate = !prev || !isSameDay(new Date(prev.created_at), new Date(msg.created_at));
+                const showUnreadSeparator = msg.id === firstUnreadId;
+                const isUnread = user && msg.sender_id !== user.id && unreadIds.has(msg.id);
+
+                return (
+                  <div key={msg.id} data-msg-id={msg.id} data-unread={isUnread ? "true" : "false"}>
+                    {showDate && <DateSeparator date={new Date(msg.created_at)} />}
+                    {showUnreadSeparator && (
+                      <div ref={unreadSeparatorRef} className="my-3 flex justify-center">
+                        <span className="rounded-full bg-primary/20 px-3 py-1 text-xs text-primary font-medium">Unread messages</span>
+                      </div>
+                    )}
+                    <MessageBubble
+                      message={msg}
+                      isOwn={msg.sender_id === user?.id}
+                      isGroup={conversation?.type === "group"}
+                      onReply={() => setReplyTo(msg)}
+                      onEdit={() => { setEditingMsg(msg); setText(msg.content ?? ""); }}
+                      onDelete={() => deleteMessage.mutate({ id: msg.id, conversationId: conversationId! })}
+                      onForward={() => setForwardMsg(msg)}
+                      onMediaClick={(url) => setLightboxUrl(url)}
+                      onReact={(emoji) => handleReact(msg.id, emoji)}
+                      reactions={reactionsMap[msg.id] ?? []}
+                      searchQuery={searchQuery}
+                      onProfileClick={(uid) => setProfileUserId(uid)}
+                      onRetry={msg._optimistic && msg._status === "failed" ? () => handleRetryMessage(msg) : undefined}
+                      onCancel={msg._optimistic && msg._status === "failed" ? () => handleCancelMessage(msg.id) : undefined}
+                    />
+                  </div>
+                );
+              });
+            });
+          })()}
 
         </div>
 
@@ -429,6 +500,13 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
         <ForwardDialog message={forwardMsg} open={!!forwardMsg} onOpenChange={() => setForwardMsg(null)} />
       )}
       {lightboxUrl && <MediaLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
+      {sliderPhotos && (
+        <MediaSlider
+          photos={sliderPhotos}
+          initialIndex={sliderIndex}
+          onClose={() => setSliderPhotos(null)}
+        />
+      )}
       {profileUserId && (
         <UserProfileDialog
           open={!!profileUserId}
