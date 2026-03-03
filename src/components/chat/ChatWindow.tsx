@@ -383,6 +383,12 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
                       </div>
                     )}
                     <div className={`mb-1 flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                      {conversation?.type === "group" && !isOwn && (
+                        <Avatar className="h-8 w-8 mr-2 mt-1 flex-shrink-0 cursor-pointer" onClick={() => setProfileUserId(firstMsg.sender_id)}>
+                          <AvatarImage src={firstMsg.sender_profile?.avatar_url ?? undefined} />
+                          <AvatarFallback className="text-xs">{firstMsg.sender_profile?.display_name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                      )}
                       <div className="max-w-[75%]">
                         <MessageContextMenu
                           message={firstMsg}
@@ -592,6 +598,12 @@ const MessageBubble = ({
 
   return (
     <div className={`mb-1 flex ${isOwn ? "justify-end" : "justify-start"}`}>
+      {isGroup && !isOwn && (
+        <Avatar className="h-8 w-8 mr-2 mt-1 flex-shrink-0 cursor-pointer" onClick={() => onProfileClick?.(msg.sender_id)}>
+          <AvatarImage src={msg.sender_profile?.avatar_url ?? undefined} />
+          <AvatarFallback className="text-xs">{msg.sender_profile?.display_name?.slice(0, 2).toUpperCase()}</AvatarFallback>
+        </Avatar>
+      )}
       <div className="max-w-[75%]">
         <MessageContextMenu
           message={msg}
