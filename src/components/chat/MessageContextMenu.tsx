@@ -69,6 +69,31 @@ export const MessageContextMenu = ({
     return () => document.removeEventListener("keydown", handler);
   }, [open, closeMenu]);
 
+  // Keep desktop menu inside viewport based on real rendered size
+  useEffect(() => {
+    if (!open || isMobile || !menuRef.current) return;
+
+    const updatePosition = () => {
+      if (!menuRef.current) return;
+      const rect = menuRef.current.getBoundingClientRect();
+      const padding = 8;
+      const maxX = Math.max(padding, window.innerWidth - rect.width - padding);
+      const maxY = Math.max(padding, window.innerHeight - rect.height - padding);
+      const nextX = Math.min(Math.max(position.x, padding), maxX);
+      const nextY = Math.min(Math.max(position.y, padding), maxY);
+
+      setPosition((prev) => (prev.x === nextX && prev.y === nextY ? prev : { x: nextX, y: nextY }));
+    };
+
+    const rafId = window.requestAnimationFrame(updatePosition);
+    window.addEventListener("resize", updatePosition);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open, isMobile, position.x, position.y, showPicker]);
+
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -130,20 +155,8 @@ export const MessageContextMenu = ({
 
   const time = format(new Date(message.created_at), "d MMM yyyy 'at' HH:mm:ss");
 
-  // Compute menu position to stay within viewport
-  const menuStyle = isMobile
-    ? {} // Mobile uses bottom sheet
-    : (() => {
-        const menuWidth = 220;
-        const menuHeight = 380;
-        let x = position.x;
-        let y = position.y;
-        if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 16;
-        if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 8;
-        if (x < 8) x = 8;
-        if (y < 8) y = 8;
-        return { left: x, top: y };
-      })();
+  // Keep previously computed/clamped coordinates for desktop
+  const menuStyle = isMobile ? {} : { left: position.x, top: position.y };
 
   return (
     <div
