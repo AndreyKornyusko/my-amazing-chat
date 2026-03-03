@@ -76,11 +76,13 @@ export const MessageContextMenu = ({
     const updatePosition = () => {
       if (!menuRef.current) return;
       const rect = menuRef.current.getBoundingClientRect();
-      const padding = 8;
-      const maxX = Math.max(padding, window.innerWidth - rect.width - padding);
-      const maxY = Math.max(padding, window.innerHeight - rect.height - padding);
-      const nextX = Math.min(Math.max(position.x, padding), maxX);
-      const nextY = Math.min(Math.max(position.y, padding), maxY);
+      const leftPadding = 8;
+      const rightPadding = 40;
+      const verticalPadding = 8;
+      const maxX = Math.max(leftPadding, window.innerWidth - rect.width - rightPadding);
+      const maxY = Math.max(verticalPadding, window.innerHeight - rect.height - verticalPadding);
+      const nextX = Math.min(Math.max(position.x, leftPadding), maxX);
+      const nextY = Math.min(Math.max(position.y, verticalPadding), maxY);
 
       setPosition((prev) => (prev.x === nextX && prev.y === nextY ? prev : { x: nextX, y: nextY }));
     };
