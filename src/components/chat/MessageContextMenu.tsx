@@ -138,7 +138,7 @@ export const MessageContextMenu = ({
         const menuHeight = 380;
         let x = position.x;
         let y = position.y;
-        if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 8;
+        if (x + menuWidth > window.innerWidth) x = window.innerWidth - menuWidth - 16;
         if (y + menuHeight > window.innerHeight) y = window.innerHeight - menuHeight - 8;
         if (x < 8) x = 8;
         if (y < 8) y = 8;
@@ -165,12 +165,12 @@ export const MessageContextMenu = ({
             ref={menuRef}
             className={
               isMobile
-                ? "fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom-5 duration-200"
+                ? "fixed bottom-0 left-0 right-0 z-50 flex justify-center animate-in slide-in-from-bottom-5 duration-200"
                 : "fixed z-50 animate-in fade-in-0 zoom-in-95 duration-150"
             }
             style={isMobile ? {} : menuStyle}
           >
-            <div className={`${isMobile ? "rounded-t-2xl" : "rounded-xl"} border border-border bg-popover shadow-2xl overflow-hidden`}>
+            <div className={`${isMobile ? "rounded-t-2xl w-full max-w-[320px]" : "rounded-xl"} border border-border bg-popover shadow-2xl overflow-hidden`}>
               {/* Quick emoji bar */}
               {!showPicker && (
                 <div className="flex items-center gap-1 px-3 py-2 border-b border-border">
