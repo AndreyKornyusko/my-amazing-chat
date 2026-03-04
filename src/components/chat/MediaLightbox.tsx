@@ -5,16 +5,17 @@ import { Button } from "@/components/ui/button";
 interface MediaLightboxProps {
   url: string;
   onClose: () => void;
+  forceVideo?: boolean;
 }
 
-export const MediaLightbox = ({ url, onClose }: MediaLightboxProps) => {
+export const MediaLightbox = ({ url, onClose, forceVideo }: MediaLightboxProps) => {
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, [onClose]);
 
-  const isVideo = url.match(/\.(mp4|webm|ogg)(\?|$)/i);
+  const isVideo = forceVideo || url.match(/\.(mp4|webm|ogg|mov)(\?|$)/i);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={onClose}>

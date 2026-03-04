@@ -47,6 +47,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxIsVideo, setLightboxIsVideo] = useState(false);
   const [sliderPhotos, setSliderPhotos] = useState<{ url: string; name?: string }[] | null>(null);
   const [sliderIndex, setSliderIndex] = useState(0);
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -462,7 +463,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
                       onEdit={() => { setEditingMsg(msg); setText(msg.content ?? ""); }}
                       onDelete={() => deleteMessage.mutate({ id: msg.id, conversationId: conversationId! })}
                       onForward={() => setForwardMsg(msg)}
-                      onMediaClick={(url) => setLightboxUrl(url)}
+                      onMediaClick={(url, isVideo) => { setLightboxUrl(url); setLightboxIsVideo(!!isVideo); }}
                       onReact={(emoji) => handleReact(msg.id, emoji)}
                       reactions={reactionsMap[msg.id] ?? []}
                       searchQuery={searchQuery}
@@ -548,7 +549,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
       {forwardMsg && (
         <ForwardDialog message={forwardMsg} open={!!forwardMsg} onOpenChange={() => setForwardMsg(null)} />
       )}
-      {lightboxUrl && <MediaLightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
+      {lightboxUrl && <MediaLightbox url={lightboxUrl} onClose={() => { setLightboxUrl(null); setLightboxIsVideo(false); }} forceVideo={lightboxIsVideo} />}
       {sliderPhotos && (
         <MediaSlider
           photos={sliderPhotos}
@@ -601,7 +602,7 @@ const MessageBubble = ({
   onEdit: () => void;
   onDelete: () => void;
   onForward: () => void;
-  onMediaClick: (url: string) => void;
+  onMediaClick: (url: string, isVideo?: boolean) => void;
   onReact: (emoji: string) => void;
   reactions: GroupedReaction[];
   searchQuery: string;
@@ -672,7 +673,7 @@ const MessageBubble = ({
             )}
 
             {(msg.type === "video" && msg.file_url) && (
-              <div className="relative mb-1 cursor-pointer overflow-hidden rounded-lg" onClick={() => onMediaClick(msg.file_url!)}>
+              <div className="relative mb-1 cursor-pointer overflow-hidden rounded-lg" onClick={() => onMediaClick(msg.file_url!, true)}>
                 <video src={msg.file_url} className="max-h-60 w-full object-cover" preload="metadata" muted />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/30 transition-colors hover:bg-black/40">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg">
