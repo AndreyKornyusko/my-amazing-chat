@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import data from "@emoji-mart/data";
+import Picker from "@emoji-mart/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMessages, useSendMessage, useEditMessage, useDeleteMessage, useMarkAsRead, useUnreadMessageIds, Message } from "@/hooks/useMessages";
 import { useReactions, useToggleReaction, GroupedReaction } from "@/hooks/useReactions";
@@ -7,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ArrowDown, Send, Paperclip, X, Check, CheckCheck, Pencil, Reply, Search, Play, Loader2, AlertCircle, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowDown, Send, Paperclip, X, Check, CheckCheck, Pencil, Reply, Search, Play, Loader2, AlertCircle, RotateCcw, Trash2, Smile } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +51,8 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const [sliderIndex, setSliderIndex] = useState(0);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
@@ -178,6 +182,17 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
       markAsRead.mutate({ messageIds: Array.from(unreadIds), conversationId });
     }
   }, [unreadIds, conversationId, markAsRead]);
+  // Close emoji picker on outside click (desktop)
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showEmojiPicker]);
 
   const handleSend = async () => {
     if (!conversationId || !text.trim()) return;
@@ -507,6 +522,24 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
           className="flex-1"
         />
+        <div className="relative" ref={emojiPickerRef}>
+          <Button variant="ghost" size="icon" onClick={() => setShowEmojiPicker((v) => !v)}>
+            <Smile className="h-5 w-5" />
+          </Button>
+          {showEmojiPicker && (
+            <>
+              <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px] md:hidden" onClick={() => setShowEmojiPicker(false)} />
+              <div className="absolute bottom-12 right-0 z-50 md:block hidden">
+                <Picker data={data} onEmojiSelect={(e: any) => { setText((t) => t + e.native); setShowEmojiPicker(false); }} theme="auto" previewPosition="none" skinTonePosition="none" />
+              </div>
+              <div className="fixed bottom-0 left-0 right-0 z-50 flex justify-center animate-in slide-in-from-bottom-5 duration-200 md:hidden">
+                <div className="rounded-t-2xl border border-border bg-popover shadow-2xl overflow-hidden w-full max-w-[360px]">
+                  <Picker data={data} onEmojiSelect={(e: any) => { setText((t) => t + e.native); setShowEmojiPicker(false); }} theme="auto" previewPosition="none" skinTonePosition="none" perLine={8} />
+                </div>
+              </div>
+            </>
+          )}
+        </div>
         <Button size="icon" onClick={handleSend} disabled={!text.trim()}>
           <Send className="h-5 w-5" />
         </Button>
