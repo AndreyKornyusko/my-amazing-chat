@@ -15,7 +15,7 @@ export interface Reaction {
 export interface GroupedReaction {
   emoji: string;
   count: number;
-  users: { user_id: string; display_name: string }[];
+  users: { user_id: string; display_name: string; avatar_url: string | null }[];
   hasReacted: boolean;
 }
 
@@ -51,13 +51,13 @@ export const useReactions = (conversationId: string | null) => {
 
       // Fetch profiles for reactors
       const userIds = [...new Set(allReactions.map((r) => r.user_id))];
-      const profileMap: Record<string, string> = {};
+      const profileMap: Record<string, { display_name: string; avatar_url: string | null }> = {};
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("id, display_name")
+          .select("id, display_name, avatar_url")
           .in("id", userIds);
-        profiles?.forEach((p) => { profileMap[p.id] = p.display_name; });
+        profiles?.forEach((p) => { profileMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url }; });
       }
 
       // Group by message_id
@@ -66,7 +66,8 @@ export const useReactions = (conversationId: string | null) => {
         if (!byMessage[r.message_id]) byMessage[r.message_id] = [];
         const group = byMessage[r.message_id];
         const existing = group.find((g) => g.emoji === r.emoji);
-        const userInfo = { user_id: r.user_id, display_name: profileMap[r.user_id] || "Unknown" };
+        const prof = profileMap[r.user_id];
+        const userInfo = { user_id: r.user_id, display_name: prof?.display_name || "Unknown", avatar_url: prof?.avatar_url ?? null };
         if (existing) {
           existing.count++;
           existing.users.push(userInfo);
