@@ -640,6 +640,12 @@ const MessageBubble = ({
   const readCount = (msg.read_by ?? []).length;
   const hasReads = readCount > 0;
 
+  // Detect emoji-only messages (1-3 emojis, no other text)
+  const emojiRegex = /^(\p{Emoji_Presentation}|\p{Extended_Pictographic}){1,3}$/u;
+  const isEmojiOnly = msg.type === "text" && msg.content && emojiRegex.test(msg.content.trim()) && !msg.reply_to && !msg.forwarded_from_id;
+  const emojiCount = isEmojiOnly ? [...msg.content!.trim()].filter(c => /\p{Emoji_Presentation}|\p{Extended_Pictographic}/u.test(c)).length : 0;
+  const emojiSize = emojiCount === 1 ? "text-6xl" : emojiCount === 2 ? "text-5xl" : "text-4xl";
+
   const highlightText = (text: string) => {
     if (!searchQuery) return text;
     const parts = text.split(new RegExp(`(${searchQuery})`, "gi"));
@@ -666,6 +672,28 @@ const MessageBubble = ({
           onForward={onForward}
           onReact={onReact}
         >
+          {isEmojiOnly ? (
+            <div className="relative px-1 py-1">
+              {isGroup && !isOwn && (
+                <p className="mb-0.5 text-xs font-semibold text-primary cursor-pointer hover:underline"
+                   onClick={() => onProfileClick?.(msg.sender_id)}>
+                  {msg.sender_profile?.display_name}
+                </p>
+              )}
+              <p className={`${emojiSize} leading-tight`}>{msg.content}</p>
+              <div className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] text-muted-foreground`}>
+                {msg.is_edited && <span>edited</span>}
+                <span>{time}</span>
+                {isOwn && (
+                  msg._optimistic && msg._status === "sending"
+                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                    : msg._optimistic && msg._status === "failed"
+                    ? <AlertCircle className="h-3 w-3 text-destructive" />
+                    : hasReads ? <CheckCheck className="h-3 w-3 text-read" /> : <Check className="h-3 w-3" />
+                )}
+              </div>
+            </div>
+          ) : (
           <div className={`relative rounded-2xl px-3 py-2 ${isOwn ? "bg-chat-bubble-out text-chat-bubble-out-foreground rounded-br-md" : "bg-chat-bubble-in text-chat-bubble-in-foreground rounded-bl-md"}`}>
             {isGroup && !isOwn && (
               <p
@@ -730,6 +758,7 @@ const MessageBubble = ({
               )}
             </div>
           </div>
+          )}
         </MessageContextMenu>
 
         {/* Failed message actions */}
