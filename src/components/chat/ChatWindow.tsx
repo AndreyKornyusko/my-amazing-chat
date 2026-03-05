@@ -285,6 +285,19 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
     toggleReaction.mutate({ messageId, emoji, conversationId });
   }, [conversationId, toggleReaction]);
 
+  const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
+
+  const scrollToMessage = useCallback((messageId: string) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const el = container.querySelector(`[data-msg-id="${messageId}"]`) as HTMLElement | null;
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedMsgId(messageId);
+      setTimeout(() => setHighlightedMsgId(null), 2000);
+    }
+  }, []);
+
   if (!conversationId) {
     return (
       <div className="flex flex-1 items-center justify-center bg-muted/30">
@@ -450,7 +463,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
                 const isUnread = user && msg.sender_id !== user.id && unreadIds.has(msg.id);
 
                 return (
-                  <div key={msg.id} data-msg-id={msg.id} data-unread={isUnread ? "true" : "false"}>
+                  <div key={msg.id} data-msg-id={msg.id} data-unread={isUnread ? "true" : "false"} className={`transition-colors duration-700 ${highlightedMsgId === msg.id ? "bg-primary/15 rounded-lg" : ""}`}>
                     {showDate && <DateSeparator date={new Date(msg.created_at)} />}
                     {showUnreadSeparator && (
                       <div ref={unreadSeparatorRef} className="my-3 flex justify-center">
@@ -472,6 +485,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
                       onProfileClick={(uid) => setProfileUserId(uid)}
                       onRetry={msg._optimistic && msg._status === "failed" ? () => handleRetryMessage(msg) : undefined}
                       onCancel={msg._optimistic && msg._status === "failed" ? () => handleCancelMessage(msg.id) : undefined}
+                      onScrollToReply={scrollToMessage}
                     />
                   </div>
                 );
@@ -596,6 +610,7 @@ const MessageBubble = ({
   onProfileClick,
   onRetry,
   onCancel,
+  onScrollToReply,
 }: {
   message: Message;
   isOwn: boolean;
@@ -611,6 +626,7 @@ const MessageBubble = ({
   onProfileClick?: (userId: string) => void;
   onRetry?: () => void;
   onCancel?: () => void;
+  onScrollToReply?: (messageId: string) => void;
 }) => {
   if (msg.is_deleted) {
     return (
@@ -659,7 +675,10 @@ const MessageBubble = ({
             )}
 
             {msg.reply_to && (
-              <div className="mb-1 rounded border-l-2 border-primary bg-muted/50 px-2 py-1 text-xs">
+              <div
+                className="mb-1 rounded border-l-2 border-primary bg-muted/50 px-2 py-1 text-xs cursor-pointer hover:bg-muted/80 transition-colors"
+                onClick={() => msg.reply_to_id && onScrollToReply?.(msg.reply_to_id)}
+              >
                 {msg.reply_to.content?.slice(0, 60)}
               </div>
             )}
