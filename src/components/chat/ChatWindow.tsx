@@ -212,6 +212,8 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
     });
     setText("");
     setReplyTo(null);
+    // Scroll to bottom after sending
+    setTimeout(() => scrollToBottom(), 50);
   };
 
   const handleRetryMessage = (msg: Message) => {
