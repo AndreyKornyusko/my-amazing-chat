@@ -64,6 +64,12 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const initialScrollDone = useRef(false);
   const readBatchRef = useRef<Set<string>>(new Set());
   const readTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const markAsReadRef = useRef(markAsRead);
+  markAsReadRef.current = markAsRead;
+  const unreadIdsRef = useRef(unreadIds);
+  unreadIdsRef.current = unreadIds;
+  const conversationIdRef = useRef(conversationId);
+  conversationIdRef.current = conversationId;
 
   const conversation = conversations?.find((c) => c.id === conversationId);
 
@@ -155,13 +161,13 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
             const msgId = (entry.target as HTMLElement).dataset.msgId;
-            if (msgId && unreadIds.has(msgId)) {
+            if (msgId && unreadIdsRef.current.has(msgId)) {
               readBatchRef.current.add(msgId);
               if (readTimerRef.current) clearTimeout(readTimerRef.current);
               readTimerRef.current = setTimeout(() => {
                 const ids = Array.from(readBatchRef.current);
-                if (ids.length > 0) {
-                  markAsRead.mutate({ messageIds: ids, conversationId: conversationId! });
+                if (ids.length > 0 && conversationIdRef.current) {
+                  markAsReadRef.current.mutate({ messageIds: ids, conversationId: conversationIdRef.current });
                   readBatchRef.current.clear();
                 }
               }, 500);
@@ -174,7 +180,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
     const elements = container.querySelectorAll("[data-unread='true']");
     elements.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [messages, unreadIds, user, conversationId, markAsRead]);
+  }, [messages, unreadIds, user, conversationId]);
 
   const scrollToBottom = useCallback(() => {
     const el = scrollContainerRef.current;
@@ -409,8 +415,9 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
                 const photos = group.msgs.map(m => ({ url: m.file_url!, name: m.file_name || undefined }));
                 const time = format(new Date(lastMsg.created_at), "HH:mm");
 
+                const hasUnread = group.msgs.some(m => user && m.sender_id !== user.id && unreadIds.has(m.id));
                 return (
-                  <div key={firstMsg.id} data-msg-id={firstMsg.id}>
+                  <div key={firstMsg.id} data-msg-id={firstMsg.id} data-unread={hasUnread ? "true" : "false"}>
                     {showDate && <DateSeparator date={new Date(firstMsg.created_at)} />}
                     {showUnreadSep && (
                       <div ref={unreadSeparatorRef} className="my-3 flex justify-center">
