@@ -52,6 +52,11 @@
     --chat-active-foreground: 0 0% 100%;
     --online: 142 71% 45%;
     --read: 210 78% 51%;
+
+    /* Mobile chat gradient (Telegram-style) */
+    --chat-gradient-from: 180 60% 45%;
+    --chat-gradient-via: 200 70% 50%;
+    --chat-gradient-to: 240 55% 55%;
   }
 
   .dark {
@@ -100,6 +105,11 @@
     --chat-active-foreground: 0 0% 100%;
     --online: 142 71% 45%;
     --read: 210 78% 51%;
+
+    /* Mobile chat gradient (Telegram-style dark) */
+    --chat-gradient-from: 200 50% 18%;
+    --chat-gradient-via: 220 45% 22%;
+    --chat-gradient-to: 260 40% 20%;
   }
 }
 
