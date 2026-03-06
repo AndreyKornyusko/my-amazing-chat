@@ -361,6 +361,9 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
 
       {/* Messages area */}
       <div className="relative flex-1 overflow-hidden md:bg-transparent bg-gradient-to-br from-[hsl(var(--chat-gradient-from))] via-[hsl(var(--chat-gradient-via))] to-[hsl(var(--chat-gradient-to))]">
+        <div className="md:hidden">
+          <ChatBackgroundPattern />
+        </div>
         <div
           ref={scrollContainerRef}
           className="h-full overflow-y-auto px-4 py-2 md:pb-2 pb-20"
