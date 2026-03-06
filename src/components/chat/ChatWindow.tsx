@@ -359,10 +359,10 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
       )}
 
       {/* Messages area */}
-      <div className="relative flex-1 overflow-hidden">
+      <div className="relative flex-1 overflow-hidden md:bg-transparent bg-gradient-to-b from-[hsl(var(--primary)/0.08)] via-[hsl(var(--background))] to-[hsl(var(--primary)/0.05)]">
         <div
           ref={scrollContainerRef}
-          className="h-full overflow-y-auto px-4 py-2"
+          className="h-full overflow-y-auto px-4 py-2 md:pb-2 pb-20"
           onScroll={handleScroll}
         >
           {hasNextPage && <div ref={topSentinelRef} className="h-1" />}
@@ -512,7 +512,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
 
       {/* Reply / Edit bar */}
       {(replyTo || editingMsg) && (
-        <div className="flex items-center gap-2 border-t border-border bg-muted/50 px-4 py-2">
+        <div className="flex items-center gap-2 border-t border-border bg-muted/50 px-4 py-2 md:relative fixed bottom-14 left-0 right-0 z-40 md:bottom-auto md:left-auto md:right-auto md:z-auto">
           <div className="flex-1 truncate text-sm">
             {editingMsg ? (
               <span className="text-primary"><Pencil className="mr-1 inline h-3 w-3" />Editing</span>
@@ -526,10 +526,10 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
         </div>
       )}
 
-      {/* Input */}
-      <div className="flex items-center gap-2 border-t border-border px-4 py-3">
+      {/* Input - floating on mobile */}
+      <div className="flex items-center gap-2 px-3 py-2 md:border-t md:border-border md:bg-background md:px-4 md:py-3 md:relative fixed bottom-0 left-0 right-0 z-40 md:bottom-auto md:left-auto md:right-auto md:z-auto">
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} multiple accept="image/*,video/*,application/*" />
-        <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()}>
+        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full md:rounded-md shrink-0" onClick={() => fileInputRef.current?.click()}>
           <Paperclip className="h-5 w-5" />
         </Button>
         <Input
@@ -537,10 +537,10 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-          className="flex-1"
+          className="flex-1 md:rounded-md rounded-full bg-card/90 md:bg-background backdrop-blur-sm md:backdrop-blur-none border-border/50"
         />
         <div className="relative" ref={emojiPickerRef}>
-          <Button variant="ghost" size="icon" onClick={() => setShowEmojiPicker((v) => !v)}>
+          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full md:rounded-md shrink-0" onClick={() => setShowEmojiPicker((v) => !v)}>
             <Smile className="h-5 w-5" />
           </Button>
           {showEmojiPicker && (
@@ -557,8 +557,8 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
             </>
           )}
         </div>
-        <Button size="icon" onClick={handleSend} disabled={!text.trim()}>
-          <Send className="h-5 w-5" />
+        <Button size="icon" className="h-9 w-9 rounded-full shrink-0" onClick={handleSend} disabled={!text.trim()}>
+          <Send className="h-4 w-4" />
         </Button>
       </div>
 
