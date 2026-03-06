@@ -20,6 +20,7 @@ import { PhotoGrid } from "./PhotoGrid";
 import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageReactions } from "./MessageReactions";
 import { UserProfileDialog } from "./UserProfileDialog";
+import ChatBackgroundPattern from "./ChatBackgroundPattern";
 
 interface ChatWindowProps {
   conversationId: string | null;
