@@ -447,9 +447,9 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
           <AvatarImage src={chatAvatar ?? undefined} />
           <AvatarFallback>{chatName.slice(0, 2).toUpperCase()}</AvatarFallback>
         </Avatar>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h2
-            className="font-semibold cursor-pointer hover:underline"
+            className="font-semibold cursor-pointer hover:underline truncate"
             onClick={() => {
               if (conversation?.type === "private" && otherUser) {
                 setProfileUserId(otherUser.user_id);
