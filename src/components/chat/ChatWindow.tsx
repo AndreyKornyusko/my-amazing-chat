@@ -9,7 +9,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ArrowDown, Send, Paperclip, X, Check, CheckCheck, Pencil, Reply, Search, Play, Loader2, AlertCircle, RotateCcw, Trash2, Smile } from "lucide-react";
+import { ArrowLeft, ArrowDown, Send, Paperclip, X, Check, CheckCheck, Pencil, Reply, Search, Play, Loader2, AlertCircle, RotateCcw, Trash2, Smile, Mic } from "lucide-react";
+import { VoiceRecorder } from "./VoiceRecorder";
 import { format, isToday, isYesterday } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -281,6 +282,27 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
     e.target.value = "";
   };
 
+  const handleVoiceSend = async (blob: Blob, durationMs: number) => {
+    if (!conversationId || !user) return;
+    const ext = blob.type.includes("webm") ? "webm" : "ogg";
+    const path = `${conversationId}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("chat-media").upload(path, blob, { contentType: blob.type });
+    if (error) {
+      toast({ title: "Upload error", description: error.message, variant: "destructive" });
+      return;
+    }
+    const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
+    sendMessage.mutate({
+      conversation_id: conversationId,
+      content: `Voice message (${Math.ceil(durationMs / 1000)}s)`,
+      type: "voice",
+      file_url: urlData.publicUrl,
+      file_name: `voice.${ext}`,
+      file_size: blob.size,
+    });
+    setTimeout(() => scrollToBottom(), 50);
+  };
+
   const filteredMessages = useMemo(() => {
     if (!messages) return [];
     if (!searchQuery) return messages;
@@ -550,7 +572,9 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
           className="flex-1 md:rounded-md rounded-full bg-card/90 md:bg-background backdrop-blur-sm md:backdrop-blur-none border-border/50"
         />
-        <div className="relative" ref={emojiPickerRef}>
+
+        {/* Emoji button: always on desktop, only when typing on mobile */}
+        <div className={`relative ${!text.trim() ? "hidden md:block" : ""}`} ref={emojiPickerRef}>
           <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full md:rounded-md shrink-0" onClick={() => setShowEmojiPicker((v) => !v)}>
             <Smile className="h-5 w-5" />
           </Button>
@@ -568,9 +592,26 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
             </>
           )}
         </div>
-        <Button size="icon" className="h-9 w-9 rounded-full shrink-0" onClick={handleSend} disabled={!text.trim()}>
-          <Send className="h-4 w-4" />
-        </Button>
+
+        {/* Send button when typing, Mic button when empty (mobile only swaps) */}
+        {text.trim() ? (
+          <Button size="icon" className="h-9 w-9 rounded-full shrink-0" onClick={handleSend}>
+            <Send className="h-4 w-4" />
+          </Button>
+        ) : (
+          <>
+            {/* Desktop: always show send (disabled) */}
+            <div className="hidden md:block">
+              <Button size="icon" className="h-9 w-9 rounded-full shrink-0" onClick={handleSend} disabled>
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
+            {/* Mobile: show voice recorder */}
+            <div className="md:hidden">
+              <VoiceRecorder onSend={handleVoiceSend} />
+            </div>
+          </>
+        )}
       </div>
 
       {forwardMsg && (
