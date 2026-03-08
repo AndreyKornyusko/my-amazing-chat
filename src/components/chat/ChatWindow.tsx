@@ -829,7 +829,7 @@ const MessageBubble = ({
 
             {(msg.type === "video" && msg.file_url) && (
               <div className="relative mb-1 cursor-pointer overflow-hidden rounded-lg" onClick={() => onMediaClick(msg.file_url!, true)}>
-                <video src={msg.file_url} className="max-h-60 w-full object-cover" preload="metadata" muted />
+                <video src={`${msg.file_url}#t=0.1`} className="max-h-60 w-full object-cover" preload="metadata" muted playsInline />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/30 transition-colors hover:bg-black/40">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/90 shadow-lg">
                     <Play className="h-6 w-6 text-foreground ml-0.5" fill="currentColor" />
