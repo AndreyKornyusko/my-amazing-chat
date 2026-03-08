@@ -9,7 +9,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ArrowDown, Send, Paperclip, X, Check, CheckCheck, Pencil, Reply, Search, Play, Loader2, AlertCircle, RotateCcw, Trash2, Smile, Mic } from "lucide-react";
+import { ArrowLeft, ArrowDown, Send, Paperclip, X, Check, CheckCheck, Pencil, Reply, Search, Play, Loader2, AlertCircle, RotateCcw, Trash2, Smile, Mic, MoreVertical, Info, BellOff, LogOut } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { VoiceMessagePlayer } from "./VoiceMessagePlayer";
 import { format, isToday, isYesterday } from "date-fns";
@@ -56,6 +59,10 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [editGroupOpen, setEditGroupOpen] = useState(false);
+  const [editGroupName, setEditGroupName] = useState("");
+  const [clearHistoryConfirm, setClearHistoryConfirm] = useState(false);
+  const [leaveGroupConfirm, setLeaveGroupConfirm] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -304,6 +311,34 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
     setTimeout(() => scrollToBottom(), 50);
   };
 
+  const handleEditGroupName = async () => {
+    if (!conversationId || !editGroupName.trim()) return;
+    const { error } = await supabase.from("conversations").update({ name: editGroupName.trim() }).eq("id", conversationId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    qc.invalidateQueries({ queryKey: ["conversations"] });
+    setEditGroupOpen(false);
+    toast({ title: "Group name updated" });
+  };
+
+  const handleClearHistory = async () => {
+    if (!conversationId) return;
+    const { error } = await supabase.from("messages").update({ is_deleted: true, content: null }).eq("conversation_id", conversationId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    qc.invalidateQueries({ queryKey: ["messages", conversationId] });
+    setClearHistoryConfirm(false);
+    toast({ title: "Chat history cleared" });
+  };
+
+  const handleLeaveGroup = async () => {
+    if (!conversationId || !user) return;
+    const { error } = await supabase.from("conversation_members").delete().eq("conversation_id", conversationId).eq("user_id", user.id);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    qc.invalidateQueries({ queryKey: ["conversations"] });
+    setLeaveGroupConfirm(false);
+    onBack?.();
+    toast({ title: "You left the group" });
+  };
+
   const filteredMessages = useMemo(() => {
     if (!messages) return [];
     if (!searchQuery) return messages;
@@ -430,6 +465,43 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
         <Button variant="ghost" size="icon" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(""); }}>
           <Search className="h-5 w-5" />
         </Button>
+        {conversation?.type === "group" && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => { setEditGroupName(conversation.name || ""); setEditGroupOpen(true); }}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                if (conversation.members.length > 0) {
+                  setProfileUserId(conversation.members[0].user_id);
+                }
+              }}>
+                <Info className="h-4 w-4 mr-2" />
+                Info
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast({ title: "Notifications muted" })}>
+                <BellOff className="h-4 w-4 mr-2" />
+                Mute
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setClearHistoryConfirm(true)}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear Chat History
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setLeaveGroupConfirm(true)}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Leave Group
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {searchOpen && (
@@ -686,6 +758,62 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
           userId={profileUserId}
         />
       )}
+
+      {/* Edit Group Name Dialog */}
+      <Dialog open={editGroupOpen} onOpenChange={setEditGroupOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Edit Group Name</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={editGroupName}
+            onChange={(e) => setEditGroupName(e.target.value)}
+            placeholder="Group name"
+            onKeyDown={(e) => e.key === "Enter" && handleEditGroupName()}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditGroupOpen(false)}>Cancel</Button>
+            <Button onClick={handleEditGroupName} disabled={!editGroupName.trim()}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear History Confirm */}
+      <AlertDialog open={clearHistoryConfirm} onOpenChange={setClearHistoryConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear Chat History</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete all messages in this chat. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearHistory} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Clear
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Leave Group Confirm */}
+      <AlertDialog open={leaveGroupConfirm} onOpenChange={setLeaveGroupConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave Group</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to leave this group? You won't be able to see messages anymore.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLeaveGroup} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Leave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
