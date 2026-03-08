@@ -792,7 +792,8 @@ const MessageBubble = ({
             )}
 
             {(msg.type === "voice" && msg.file_url) && (
-              <VoiceMessagePlayer url={msg.file_url} isMine={msg.sender_id === user?.id} />
+              <VoiceMessagePlayer url={msg.file_url} isMine={isOwn} />
+            )}
             )}
 
             {msg.content && msg.type === "text" && (
