@@ -758,6 +758,62 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
           userId={profileUserId}
         />
       )}
+
+      {/* Edit Group Name Dialog */}
+      <Dialog open={editGroupOpen} onOpenChange={setEditGroupOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Edit Group Name</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={editGroupName}
+            onChange={(e) => setEditGroupName(e.target.value)}
+            placeholder="Group name"
+            onKeyDown={(e) => e.key === "Enter" && handleEditGroupName()}
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditGroupOpen(false)}>Cancel</Button>
+            <Button onClick={handleEditGroupName} disabled={!editGroupName.trim()}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clear History Confirm */}
+      <AlertDialog open={clearHistoryConfirm} onOpenChange={setClearHistoryConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear Chat History</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete all messages in this chat. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleClearHistory} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Clear
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Leave Group Confirm */}
+      <AlertDialog open={leaveGroupConfirm} onOpenChange={setLeaveGroupConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave Group</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to leave this group? You won't be able to see messages anymore.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLeaveGroup} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Leave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
