@@ -61,6 +61,23 @@ export const useMessages = (conversationId: string | null) => {
           replyTo = reply;
         }
 
+        let forwardedFromProfile = null;
+        if (msg.forwarded_from_id) {
+          const { data: fwdMsg } = await supabase
+            .from("messages")
+            .select("sender_id")
+            .eq("id", msg.forwarded_from_id)
+            .single();
+          if (fwdMsg) {
+            const { data: fwdProfile } = await supabase
+              .from("profiles")
+              .select("display_name")
+              .eq("id", fwdMsg.sender_id)
+              .single();
+            forwardedFromProfile = fwdProfile;
+          }
+        }
+
         const { data: reads } = await supabase
           .from("message_reads")
           .select("user_id")
