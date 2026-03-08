@@ -456,13 +456,18 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
               }
             }}
           >{chatName}</h2>
-          <p className="text-xs text-muted-foreground">
-            {conversation?.type === "group"
-              ? `${conversation.members.length} members`
-              : otherUser?.profile?.is_online
-              ? "online"
-              : "offline"}
-          </p>
+          {conversation?.type === "group" ? (
+            <p
+              className="text-xs text-muted-foreground cursor-pointer hover:underline"
+              onClick={() => setMembersDialogOpen(true)}
+            >
+              {conversation.members.length} members
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {otherUser?.profile?.is_online ? "online" : "offline"}
+            </p>
+          )}
         </div>
         <Button variant="ghost" size="icon" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(""); }}>
           <Search className="h-5 w-5" />
