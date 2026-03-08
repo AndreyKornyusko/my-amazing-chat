@@ -26,6 +26,7 @@ import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageReactions } from "./MessageReactions";
 import { UserProfileDialog } from "./UserProfileDialog";
 import ChatBackgroundPattern from "./ChatBackgroundPattern";
+import { GroupMembersDialog } from "./GroupMembersDialog";
 
 interface ChatWindowProps {
   conversationId: string | null;
