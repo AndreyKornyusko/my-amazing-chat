@@ -282,6 +282,27 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
     e.target.value = "";
   };
 
+  const handleVoiceSend = async (blob: Blob, durationMs: number) => {
+    if (!conversationId || !user) return;
+    const ext = blob.type.includes("webm") ? "webm" : "ogg";
+    const path = `${conversationId}/${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("chat-media").upload(path, blob, { contentType: blob.type });
+    if (error) {
+      toast({ title: "Upload error", description: error.message, variant: "destructive" });
+      return;
+    }
+    const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
+    sendMessage.mutate({
+      conversation_id: conversationId,
+      content: `Voice message (${Math.ceil(durationMs / 1000)}s)`,
+      type: "voice",
+      file_url: urlData.publicUrl,
+      file_name: `voice.${ext}`,
+      file_size: blob.size,
+    });
+    setTimeout(() => scrollToBottom(), 50);
+  };
+
   const filteredMessages = useMemo(() => {
     if (!messages) return [];
     if (!searchQuery) return messages;
