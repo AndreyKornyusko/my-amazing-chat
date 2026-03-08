@@ -925,7 +925,7 @@ const MessageBubble = ({
           {isEmojiOnly ? (
             <div className="relative px-1 py-1">
               {isGroup && !isOwn && (
-                <p className="mb-0.5 text-xs font-semibold text-primary cursor-pointer hover:underline"
+                <p className="mb-0.5 text-xs font-semibold text-primary cursor-pointer hover:underline truncate max-w-[200px]"
                    onClick={() => onProfileClick?.(msg.sender_id)}>
                   {msg.sender_profile?.display_name}
                 </p>
