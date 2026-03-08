@@ -1007,7 +1007,7 @@ const MessageBubble = ({
             )}
 
             {msg.content && msg.type === "text" && (
-              <p className="text-sm whitespace-pre-wrap break-words">{highlightText(msg.content)}</p>
+              <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{highlightText(msg.content)}</p>
             )}
 
             <div className={`mt-0.5 flex items-center justify-end gap-1 text-[10px] ${isOwn ? "text-chat-bubble-out-foreground/50" : "text-chat-bubble-in-foreground/50"}`}>
