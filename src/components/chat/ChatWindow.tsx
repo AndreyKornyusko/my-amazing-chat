@@ -964,7 +964,18 @@ const MessageBubble = ({
             {msg.forwarded_from_id && (
               <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
                 <span className="text-sm">↗</span>
-                <span className="font-medium">Forwarded from {msg.forwarded_from_profile?.display_name || "Unknown"}</span>
+                <span>Forwarded from </span>
+                <span
+                  className="font-semibold text-primary cursor-pointer hover:underline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (msg.forwarded_from_profile?.sender_id) {
+                      onProfileClick?.(msg.forwarded_from_profile.sender_id);
+                    }
+                  }}
+                >
+                  {msg.forwarded_from_profile?.display_name || "Unknown"}
+                </span>
               </div>
             )}
 

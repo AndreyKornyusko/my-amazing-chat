@@ -74,7 +74,7 @@ export const useMessages = (conversationId: string | null) => {
               .select("display_name")
               .eq("id", fwdMsg.sender_id)
               .single();
-            forwardedFromProfile = fwdProfile;
+            forwardedFromProfile = fwdProfile ? { ...fwdProfile, sender_id: fwdMsg.sender_id } : null;
           }
         }
 
