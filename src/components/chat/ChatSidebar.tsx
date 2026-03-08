@@ -164,11 +164,19 @@ const ConversationItem = ({
   isActive,
   currentUserId,
   onClick,
+  pinned,
+  muted,
+  onTogglePin,
+  onToggleMute,
 }: {
   conversation: ConversationWithDetails;
   isActive: boolean;
   currentUserId: string;
   onClick: () => void;
+  pinned: boolean;
+  muted: boolean;
+  onTogglePin: () => void;
+  onToggleMute: () => void;
 }) => {
   const name = getConversationName(conv, currentUserId);
   const avatar = getConversationAvatar(conv, currentUserId);
@@ -184,9 +192,6 @@ const ConversationItem = ({
   const time = conv.last_message
     ? formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false })
     : "";
-
-  const [pinned, setPinned] = useState(false);
-  const [muted, setMuted] = useState(false);
 
   return (
     <ContextMenu>
@@ -227,11 +232,11 @@ const ConversationItem = ({
         </button>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
-        <ContextMenuItem onClick={() => { setPinned(!pinned); toast(pinned ? "Unpinned" : "Pinned"); }}>
+        <ContextMenuItem onClick={onTogglePin}>
           <Pin className="mr-2 h-4 w-4" />
           {pinned ? "Unpin" : "Pin"}
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => { setMuted(!muted); toast(muted ? "Unmuted" : "Muted"); }}>
+        <ContextMenuItem onClick={onToggleMute}>
           {muted ? <Bell className="mr-2 h-4 w-4" /> : <BellOff className="mr-2 h-4 w-4" />}
           {muted ? "Unmute" : "Mute"}
         </ContextMenuItem>
