@@ -465,6 +465,43 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
         <Button variant="ghost" size="icon" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(""); }}>
           <Search className="h-5 w-5" />
         </Button>
+        {conversation?.type === "group" && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onClick={() => { setEditGroupName(conversation.name || ""); setEditGroupOpen(true); }}>
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                if (conversation.members.length > 0) {
+                  setProfileUserId(conversation.members[0].user_id);
+                }
+              }}>
+                <Info className="h-4 w-4 mr-2" />
+                Info
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => toast({ title: "Notifications muted" })}>
+                <BellOff className="h-4 w-4 mr-2" />
+                Mute
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setClearHistoryConfirm(true)}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Clear Chat History
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => setLeaveGroupConfirm(true)}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Leave Group
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {searchOpen && (
