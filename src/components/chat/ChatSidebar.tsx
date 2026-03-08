@@ -128,6 +128,10 @@ export const ChatSidebar = ({ activeConversationId, onSelectConversation }: Chat
             isActive={conv.id === activeConversationId}
             currentUserId={user?.id ?? ""}
             onClick={() => onSelectConversation(conv.id)}
+            pinned={pinnedIds.has(conv.id)}
+            muted={mutedIds.has(conv.id)}
+            onTogglePin={() => togglePin(conv.id)}
+            onToggleMute={() => toggleMute(conv.id)}
           />
         ))}
       </ScrollArea>
