@@ -64,6 +64,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const [editGroupName, setEditGroupName] = useState("");
   const [clearHistoryConfirm, setClearHistoryConfirm] = useState(false);
   const [leaveGroupConfirm, setLeaveGroupConfirm] = useState(false);
+  const [membersDialogOpen, setMembersDialogOpen] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
