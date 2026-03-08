@@ -433,7 +433,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   return (
     <div className="flex flex-1 flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+      <div className="flex items-center gap-3 border-b border-border px-4 py-3 fixed top-0 left-0 right-0 z-40 bg-background md:relative md:top-auto md:left-auto md:right-auto md:z-auto">
         {onBack && (
           <Button variant="ghost" size="icon" onClick={onBack}>
             <ArrowLeft className="h-5 w-5" />
