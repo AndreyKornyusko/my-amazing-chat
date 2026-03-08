@@ -664,7 +664,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
         {!isAtBottom && (
           <button
             onClick={scrollToBottom}
-            className="absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-card border border-border shadow-lg transition-transform hover:scale-105 active:scale-95"
+            className="absolute bottom-20 md:bottom-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-card border border-border shadow-lg transition-transform hover:scale-105 active:scale-95 z-10"
           >
             <ArrowDown className="h-5 w-5 text-foreground" />
             {unreadCount > 0 && (
