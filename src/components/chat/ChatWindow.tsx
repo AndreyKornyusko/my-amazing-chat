@@ -972,11 +972,11 @@ const MessageBubble = ({
             )}
 
             {(msg.type === "video" && msg.file_url) && (
-              <div className="relative mb-1 cursor-pointer overflow-hidden rounded-lg bg-black/50 min-h-[120px]" onClick={() => onMediaClick(msg.file_url!, true)}>
-                <video src={`${msg.file_url}#t=0.1`} className="max-h-60 w-full object-cover" preload="metadata" muted playsInline />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30 transition-colors hover:bg-black/40">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 shadow-lg backdrop-blur-sm">
-                    <Play className="h-7 w-7 text-foreground ml-0.5" fill="currentColor" />
+              <div className="relative mb-1 cursor-pointer overflow-hidden rounded-2xl bg-black min-h-[200px] max-w-[280px]" onClick={() => onMediaClick(msg.file_url!, true)}>
+                <video src={`${msg.file_url}#t=0.1`} className="min-h-[200px] max-h-80 w-full object-cover" preload="metadata" muted playsInline />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/50 backdrop-blur-md">
+                    <Play className="h-5 w-5 text-white ml-0.5" fill="white" />
                   </div>
                 </div>
               </div>
