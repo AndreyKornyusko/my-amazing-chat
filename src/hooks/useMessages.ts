@@ -9,6 +9,7 @@ const PAGE_SIZE = 30;
 export type Message = Tables<"messages"> & {
   sender_profile?: { display_name: string; avatar_url: string | null };
   reply_to?: { content: string | null; sender_id: string } | null;
+  forwarded_from_profile?: { display_name: string } | null;
   read_by?: string[];
   _optimistic?: boolean;
   _status?: "sending" | "failed";
@@ -60,6 +61,23 @@ export const useMessages = (conversationId: string | null) => {
           replyTo = reply;
         }
 
+        let forwardedFromProfile = null;
+        if (msg.forwarded_from_id) {
+          const { data: fwdMsg } = await supabase
+            .from("messages")
+            .select("sender_id")
+            .eq("id", msg.forwarded_from_id)
+            .single();
+          if (fwdMsg) {
+            const { data: fwdProfile } = await supabase
+              .from("profiles")
+              .select("display_name")
+              .eq("id", fwdMsg.sender_id)
+              .single();
+            forwardedFromProfile = fwdProfile;
+          }
+        }
+
         const { data: reads } = await supabase
           .from("message_reads")
           .select("user_id")
@@ -69,6 +87,7 @@ export const useMessages = (conversationId: string | null) => {
           ...msg,
           sender_profile: profile ?? undefined,
           reply_to: replyTo,
+          forwarded_from_profile: forwardedFromProfile,
           read_by: reads?.map((r) => r.user_id) ?? [],
         });
       }
