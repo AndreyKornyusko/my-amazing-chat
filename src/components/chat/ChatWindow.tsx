@@ -962,7 +962,10 @@ const MessageBubble = ({
             )}
 
             {msg.forwarded_from_id && (
-              <p className="mb-0.5 text-xs italic text-muted-foreground">↗ Forwarded message</p>
+              <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
+                <span className="text-sm">↗</span>
+                <span className="font-medium">Forwarded from {msg.forwarded_from_profile?.display_name || "Unknown"}</span>
+              </div>
             )}
 
             {(msg.type === "photo" && msg.file_url) && (

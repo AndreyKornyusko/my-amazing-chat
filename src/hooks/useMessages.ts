@@ -87,6 +87,7 @@ export const useMessages = (conversationId: string | null) => {
           ...msg,
           sender_profile: profile ?? undefined,
           reply_to: replyTo,
+          forwarded_from_profile: forwardedFromProfile,
           read_by: reads?.map((r) => r.user_id) ?? [],
         });
       }
