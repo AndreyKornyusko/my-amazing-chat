@@ -598,7 +598,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
                         >
                           <div className={`relative rounded-2xl px-1 py-1 ${isOwn ? "bg-chat-bubble-out text-chat-bubble-out-foreground rounded-br-md" : "bg-chat-bubble-in text-chat-bubble-in-foreground rounded-bl-md"}`}>
                             {conversation?.type === "group" && !isOwn && (
-                              <p className="mb-0.5 px-2 text-xs font-semibold text-primary cursor-pointer hover:underline"
+                              <p className="mb-0.5 px-2 text-xs font-semibold text-primary cursor-pointer hover:underline truncate max-w-[200px]"
                                  onClick={() => setProfileUserId(firstMsg.sender_id)}>
                                 {firstMsg.sender_profile?.display_name}
                               </p>
