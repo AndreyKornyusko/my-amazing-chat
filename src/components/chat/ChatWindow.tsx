@@ -26,6 +26,7 @@ import { MessageContextMenu } from "./MessageContextMenu";
 import { MessageReactions } from "./MessageReactions";
 import { UserProfileDialog } from "./UserProfileDialog";
 import ChatBackgroundPattern from "./ChatBackgroundPattern";
+import { GroupMembersDialog } from "./GroupMembersDialog";
 
 interface ChatWindowProps {
   conversationId: string | null;
@@ -63,6 +64,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const [editGroupName, setEditGroupName] = useState("");
   const [clearHistoryConfirm, setClearHistoryConfirm] = useState(false);
   const [leaveGroupConfirm, setLeaveGroupConfirm] = useState(false);
+  const [membersDialogOpen, setMembersDialogOpen] = useState(false);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -454,13 +456,18 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
               }
             }}
           >{chatName}</h2>
-          <p className="text-xs text-muted-foreground">
-            {conversation?.type === "group"
-              ? `${conversation.members.length} members`
-              : otherUser?.profile?.is_online
-              ? "online"
-              : "offline"}
-          </p>
+          {conversation?.type === "group" ? (
+            <p
+              className="text-xs text-muted-foreground cursor-pointer hover:underline"
+              onClick={() => setMembersDialogOpen(true)}
+            >
+              {conversation.members.length} members
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {otherUser?.profile?.is_online ? "online" : "offline"}
+            </p>
+          )}
         </div>
         <Button variant="ghost" size="icon" onClick={() => { setSearchOpen(!searchOpen); setSearchQuery(""); }}>
           <Search className="h-5 w-5" />
@@ -759,7 +766,16 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
         />
       )}
 
-      {/* Edit Group Name Dialog */}
+      {conversation?.type === "group" && (
+        <GroupMembersDialog
+          open={membersDialogOpen}
+          onOpenChange={setMembersDialogOpen}
+          members={conversation.members}
+          groupName={chatName}
+          onMemberClick={(userId) => setProfileUserId(userId)}
+        />
+      )}
+
       <Dialog open={editGroupOpen} onOpenChange={setEditGroupOpen}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
