@@ -316,17 +316,70 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   }, [conversationId, toggleReaction]);
 
   const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
+  const [jumpToMsgId, setJumpToMsgId] = useState<string | null>(null);
 
-  const scrollToMessage = useCallback((messageId: string) => {
+  // After messages update, check if the jump target is now in the DOM
+  useEffect(() => {
+    if (!jumpToMsgId) return;
     const container = scrollContainerRef.current;
     if (!container) return;
+    // Use requestAnimationFrame to wait for DOM update
+    const raf = requestAnimationFrame(() => {
+      const el = container.querySelector(`[data-msg-id="${jumpToMsgId}"]`) as HTMLElement | null;
+      if (el) {
+        el.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "center" });
+        setHighlightedMsgId(jumpToMsgId);
+        setTimeout(() => setHighlightedMsgId(null), 2000);
+        setJumpToMsgId(null);
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [jumpToMsgId, messages]);
+
+  const scrollToMessage = useCallback(async (messageId: string) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    // If already in DOM, jump instantly
     const el = container.querySelector(`[data-msg-id="${messageId}"]`) as HTMLElement | null;
     if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "center" });
       setHighlightedMsgId(messageId);
       setTimeout(() => setHighlightedMsgId(null), 2000);
+      return;
     }
-  }, []);
+
+    // Message not loaded — keep fetching older pages until found or no more pages
+    setJumpToMsgId(messageId);
+
+    // Fetch pages in a loop until the message appears or we run out
+    const fetchLoop = async () => {
+      // We need to access the query data to check pages
+      let attempts = 0;
+      const maxAttempts = 20; // safety limit
+      while (attempts < maxAttempts) {
+        const queryData: any = qc.getQueryData(["messages", conversationId]);
+        // Check if message is already in the data
+        const found = queryData?.pages?.some((page: Message[]) =>
+          page.some((m: Message) => m.id === messageId)
+        );
+        if (found) break;
+
+        // Check if there are more pages
+        const hasMore = queryData?.pages
+          ? queryData.pages[queryData.pages.length - 1]?.length === 30
+          : false;
+        if (!hasMore) break;
+
+        await fetchNextPage();
+        attempts++;
+        // Small delay to let state settle
+        await new Promise((r) => setTimeout(r, 100));
+      }
+    };
+
+    fetchLoop();
+  }, [conversationId, fetchNextPage, qc]);
 
   if (!conversationId) {
     return (
