@@ -9,7 +9,7 @@ const PAGE_SIZE = 30;
 export type Message = Tables<"messages"> & {
   sender_profile?: { display_name: string; avatar_url: string | null };
   reply_to?: { content: string | null; sender_id: string } | null;
-  forwarded_from_profile?: { display_name: string } | null;
+  forwarded_from_profile?: { display_name: string; sender_id: string } | null;
   read_by?: string[];
   _optimistic?: boolean;
   _status?: "sending" | "failed";
