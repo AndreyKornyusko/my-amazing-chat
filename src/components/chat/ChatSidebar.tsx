@@ -7,11 +7,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Moon, Sun, LogOut, Users, UserPlus } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { Search, Moon, Sun, LogOut, Users, UserPlus, Pin, BellOff, DoorOpen, Trash2, Bell } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ContactsDialog } from "./ContactsDialog";
 import { NewGroupDialog } from "./NewGroupDialog";
 import { UserProfileDialog } from "./UserProfileDialog";
+import { toast } from "sonner";
 
 interface ChatSidebarProps {
   activeConversationId: string | null;
@@ -145,36 +153,62 @@ const ConversationItem = ({
     ? formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false })
     : "";
 
+  const [pinned, setPinned] = useState(false);
+  const [muted, setMuted] = useState(false);
+
   return (
-    <button
-      onClick={onClick}
-      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent ${
-        isActive ? "bg-chat-active text-chat-active-foreground hover:bg-chat-active" : ""
-      }`}
-    >
-      <div className="relative">
-        <Avatar className="h-12 w-12">
-          <AvatarImage src={avatar ?? undefined} />
-          <AvatarFallback>{getInitials(name)}</AvatarFallback>
-        </Avatar>
-        {isOnline && (
-          <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-background bg-online" />
-        )}
-      </div>
-      <div className="flex-1 overflow-hidden">
-        <div className="flex items-center justify-between">
-          <span className="font-semibold truncate">{name}</span>
-          <span className={`text-xs whitespace-nowrap ${isActive ? "text-chat-active-foreground/70" : "text-muted-foreground"}`}>{time}</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className={`text-sm truncate ${isActive ? "text-chat-active-foreground/70" : "text-muted-foreground"}`}>{lastMsgText}</span>
-          {conv.unread_count > 0 && !isActive && (
-            <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
-              {conv.unread_count}
-            </span>
-          )}
-        </div>
-      </div>
-    </button>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <button
+          onClick={onClick}
+          className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent ${
+            isActive ? "bg-chat-active text-chat-active-foreground hover:bg-chat-active" : ""
+          }`}
+        >
+          <div className="relative">
+            <Avatar className="h-12 w-12">
+              <AvatarImage src={avatar ?? undefined} />
+              <AvatarFallback>{getInitials(name)}</AvatarFallback>
+            </Avatar>
+            {isOnline && (
+              <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-background bg-online" />
+            )}
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="font-semibold truncate">{name}</span>
+                {pinned && <Pin className="h-3 w-3 text-muted-foreground rotate-45" />}
+                {muted && <BellOff className="h-3 w-3 text-muted-foreground" />}
+              </div>
+              <span className={`text-xs whitespace-nowrap ${isActive ? "text-chat-active-foreground/70" : "text-muted-foreground"}`}>{time}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className={`text-sm truncate ${isActive ? "text-chat-active-foreground/70" : "text-muted-foreground"}`}>{lastMsgText}</span>
+              {conv.unread_count > 0 && !isActive && (
+                <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
+                  {conv.unread_count}
+                </span>
+              )}
+            </div>
+          </div>
+        </button>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-52">
+        <ContextMenuItem onClick={() => { setPinned(!pinned); toast(pinned ? "Unpinned" : "Pinned"); }}>
+          <Pin className="mr-2 h-4 w-4" />
+          {pinned ? "Unpin" : "Pin"}
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => { setMuted(!muted); toast(muted ? "Unmuted" : "Muted"); }}>
+          {muted ? <Bell className="mr-2 h-4 w-4" /> : <BellOff className="mr-2 h-4 w-4" />}
+          {muted ? "Unmute" : "Mute"}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem className="text-destructive focus:text-destructive" onClick={() => toast("Left chat")}>
+          <DoorOpen className="mr-2 h-4 w-4" />
+          {conv.type === "group" ? "Leave group" : "Delete chat"}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 };
