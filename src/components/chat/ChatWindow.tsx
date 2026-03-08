@@ -766,7 +766,16 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
         />
       )}
 
-      {/* Edit Group Name Dialog */}
+      {conversation?.type === "group" && (
+        <GroupMembersDialog
+          open={membersDialogOpen}
+          onOpenChange={setMembersDialogOpen}
+          members={conversation.members}
+          groupName={chatName}
+          onMemberClick={(userId) => setProfileUserId(userId)}
+        />
+      )}
+
       <Dialog open={editGroupOpen} onOpenChange={setEditGroupOpen}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
