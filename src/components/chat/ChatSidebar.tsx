@@ -7,11 +7,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search, Moon, Sun, LogOut, Users, UserPlus } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { Search, Moon, Sun, LogOut, Users, UserPlus, Pin, BellOff, DoorOpen, Trash2, Bell } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ContactsDialog } from "./ContactsDialog";
 import { NewGroupDialog } from "./NewGroupDialog";
 import { UserProfileDialog } from "./UserProfileDialog";
+import { toast } from "sonner";
 
 interface ChatSidebarProps {
   activeConversationId: string | null;
