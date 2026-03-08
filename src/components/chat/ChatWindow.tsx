@@ -791,7 +791,7 @@ const MessageBubble = ({
             )}
 
             {(msg.type === "voice" && msg.file_url) && (
-              <audio src={msg.file_url} controls className="mb-1 w-full" />
+              <VoiceMessagePlayer url={msg.file_url} isMine={msg.sender_id === user?.id} />
             )}
 
             {msg.content && msg.type === "text" && (
