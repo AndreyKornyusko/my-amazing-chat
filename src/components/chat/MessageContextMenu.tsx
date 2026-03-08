@@ -180,8 +180,8 @@ export const MessageContextMenu = ({
             ref={menuRef}
             className={
               isMobile
-                ? "fixed bottom-0 left-0 right-0 z-50 flex justify-center animate-in slide-in-from-bottom-5 duration-200"
-                : "fixed z-50 animate-in fade-in-0 zoom-in-95 duration-150"
+                ? "fixed bottom-0 left-0 right-0 z-[60] flex justify-center animate-in slide-in-from-bottom-5 duration-200"
+                : "fixed z-[60] animate-in fade-in-0 zoom-in-95 duration-150"
             }
             style={isMobile ? {} : menuStyle}
           >
