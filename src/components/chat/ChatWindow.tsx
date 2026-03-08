@@ -947,7 +947,7 @@ const MessageBubble = ({
           <div className={`relative rounded-2xl px-3 py-2 ${isOwn ? "bg-chat-bubble-out text-chat-bubble-out-foreground rounded-br-md" : "bg-chat-bubble-in text-chat-bubble-in-foreground rounded-bl-md"}`}>
             {isGroup && !isOwn && (
               <p
-                className="mb-0.5 text-xs font-semibold text-primary cursor-pointer hover:underline"
+                className="mb-0.5 text-xs font-semibold text-primary cursor-pointer hover:underline truncate max-w-[200px]"
                 onClick={() => onProfileClick?.(msg.sender_id)}
               >{msg.sender_profile?.display_name}</p>
             )}
