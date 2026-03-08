@@ -311,6 +311,34 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
     setTimeout(() => scrollToBottom(), 50);
   };
 
+  const handleEditGroupName = async () => {
+    if (!conversationId || !editGroupName.trim()) return;
+    const { error } = await supabase.from("conversations").update({ name: editGroupName.trim() }).eq("id", conversationId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    qc.invalidateQueries({ queryKey: ["conversations"] });
+    setEditGroupOpen(false);
+    toast({ title: "Group name updated" });
+  };
+
+  const handleClearHistory = async () => {
+    if (!conversationId) return;
+    const { error } = await supabase.from("messages").update({ is_deleted: true, content: null }).eq("conversation_id", conversationId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    qc.invalidateQueries({ queryKey: ["messages", conversationId] });
+    setClearHistoryConfirm(false);
+    toast({ title: "Chat history cleared" });
+  };
+
+  const handleLeaveGroup = async () => {
+    if (!conversationId || !user) return;
+    const { error } = await supabase.from("conversation_members").delete().eq("conversation_id", conversationId).eq("user_id", user.id);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    qc.invalidateQueries({ queryKey: ["conversations"] });
+    setLeaveGroupConfirm(false);
+    onBack?.();
+    toast({ title: "You left the group" });
+  };
+
   const filteredMessages = useMemo(() => {
     if (!messages) return [];
     if (!searchQuery) return messages;
