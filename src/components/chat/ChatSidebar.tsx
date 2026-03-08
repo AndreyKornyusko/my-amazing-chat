@@ -35,18 +35,46 @@ export const ChatSidebar = ({ activeConversationId, onSelectConversation }: Chat
   const [groupOpen, setGroupOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const { data: profile } = useProfile();
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+  const [mutedIds, setMutedIds] = useState<Set<string>>(new Set());
+
+  const togglePin = (id: string) => {
+    setPinnedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); toast("Unpinned"); }
+      else { next.add(id); toast("Pinned"); }
+      return next;
+    });
+  };
+
+  const toggleMute = (id: string) => {
+    setMutedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); toast("Unmuted"); }
+      else { next.add(id); toast("Muted"); }
+      return next;
+    });
+  };
 
   const totalUnread = useMemo(() => conversations?.reduce((sum, c) => sum + c.unread_count, 0) ?? 0, [conversations]);
 
   const filtered = useMemo(() => {
     if (!conversations) return [];
-    if (!search) return conversations;
-    const q = search.toLowerCase();
-    return conversations.filter((c) => {
-      const name = getConversationName(c, user?.id ?? "");
-      return name.toLowerCase().includes(q);
+    let list = conversations;
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((c) => {
+        const name = getConversationName(c, user?.id ?? "");
+        return name.toLowerCase().includes(q);
+      });
+    }
+    // Sort pinned chats to the top
+    return [...list].sort((a, b) => {
+      const ap = pinnedIds.has(a.id) ? 0 : 1;
+      const bp = pinnedIds.has(b.id) ? 0 : 1;
+      return ap - bp;
     });
-  }, [conversations, search, user]);
+  }, [conversations, search, user, pinnedIds]);
 
   return (
     <>
@@ -100,6 +128,10 @@ export const ChatSidebar = ({ activeConversationId, onSelectConversation }: Chat
             isActive={conv.id === activeConversationId}
             currentUserId={user?.id ?? ""}
             onClick={() => onSelectConversation(conv.id)}
+            pinned={pinnedIds.has(conv.id)}
+            muted={mutedIds.has(conv.id)}
+            onTogglePin={() => togglePin(conv.id)}
+            onToggleMute={() => toggleMute(conv.id)}
           />
         ))}
       </ScrollArea>
@@ -132,11 +164,19 @@ const ConversationItem = ({
   isActive,
   currentUserId,
   onClick,
+  pinned,
+  muted,
+  onTogglePin,
+  onToggleMute,
 }: {
   conversation: ConversationWithDetails;
   isActive: boolean;
   currentUserId: string;
   onClick: () => void;
+  pinned: boolean;
+  muted: boolean;
+  onTogglePin: () => void;
+  onToggleMute: () => void;
 }) => {
   const name = getConversationName(conv, currentUserId);
   const avatar = getConversationAvatar(conv, currentUserId);
@@ -152,9 +192,6 @@ const ConversationItem = ({
   const time = conv.last_message
     ? formatDistanceToNow(new Date(conv.last_message.created_at), { addSuffix: false })
     : "";
-
-  const [pinned, setPinned] = useState(false);
-  const [muted, setMuted] = useState(false);
 
   return (
     <ContextMenu>
@@ -195,11 +232,11 @@ const ConversationItem = ({
         </button>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52">
-        <ContextMenuItem onClick={() => { setPinned(!pinned); toast(pinned ? "Unpinned" : "Pinned"); }}>
+        <ContextMenuItem onClick={onTogglePin}>
           <Pin className="mr-2 h-4 w-4" />
           {pinned ? "Unpin" : "Pin"}
         </ContextMenuItem>
-        <ContextMenuItem onClick={() => { setMuted(!muted); toast(muted ? "Unmuted" : "Muted"); }}>
+        <ContextMenuItem onClick={onToggleMute}>
           {muted ? <Bell className="mr-2 h-4 w-4" /> : <BellOff className="mr-2 h-4 w-4" />}
           {muted ? "Unmute" : "Mute"}
         </ContextMenuItem>
