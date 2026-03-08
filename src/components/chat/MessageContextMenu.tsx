@@ -173,7 +173,7 @@ export const MessageContextMenu = ({
       {open && (
         <>
           {/* Backdrop */}
-          <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px]" onClick={closeMenu} />
+          <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px]" onClick={closeMenu} onTouchEnd={(e) => { e.preventDefault(); closeMenu(); }} />
 
           {/* Menu */}
           <div
