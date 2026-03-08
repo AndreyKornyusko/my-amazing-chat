@@ -431,7 +431,7 @@ export const ChatWindow = ({ conversationId, onBack }: ChatWindowProps) => {
   const otherUser = conversation?.type === "private" ? conversation.members.find((m) => m.user_id !== user?.id) : null;
 
   return (
-    <div className="flex flex-1 flex-col h-full overflow-hidden">
+    <div className="flex flex-1 flex-col h-full overflow-hidden pt-[60px] md:pt-0">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-border px-4 py-3 fixed top-0 left-0 right-0 z-40 bg-background md:relative md:top-auto md:left-auto md:right-auto md:z-auto">
         {onBack && (
