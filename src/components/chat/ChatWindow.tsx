@@ -794,7 +794,6 @@ const MessageBubble = ({
             {(msg.type === "voice" && msg.file_url) && (
               <VoiceMessagePlayer url={msg.file_url} isMine={isOwn} />
             )}
-            )}
 
             {msg.content && msg.type === "text" && (
               <p className="text-sm whitespace-pre-wrap break-words">{highlightText(msg.content)}</p>
