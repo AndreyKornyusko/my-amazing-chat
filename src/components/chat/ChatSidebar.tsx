@@ -35,18 +35,46 @@ export const ChatSidebar = ({ activeConversationId, onSelectConversation }: Chat
   const [groupOpen, setGroupOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const { data: profile } = useProfile();
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+  const [mutedIds, setMutedIds] = useState<Set<string>>(new Set());
+
+  const togglePin = (id: string) => {
+    setPinnedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); toast("Unpinned"); }
+      else { next.add(id); toast("Pinned"); }
+      return next;
+    });
+  };
+
+  const toggleMute = (id: string) => {
+    setMutedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); toast("Unmuted"); }
+      else { next.add(id); toast("Muted"); }
+      return next;
+    });
+  };
 
   const totalUnread = useMemo(() => conversations?.reduce((sum, c) => sum + c.unread_count, 0) ?? 0, [conversations]);
 
   const filtered = useMemo(() => {
     if (!conversations) return [];
-    if (!search) return conversations;
-    const q = search.toLowerCase();
-    return conversations.filter((c) => {
-      const name = getConversationName(c, user?.id ?? "");
-      return name.toLowerCase().includes(q);
+    let list = conversations;
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((c) => {
+        const name = getConversationName(c, user?.id ?? "");
+        return name.toLowerCase().includes(q);
+      });
+    }
+    // Sort pinned chats to the top
+    return [...list].sort((a, b) => {
+      const ap = pinnedIds.has(a.id) ? 0 : 1;
+      const bp = pinnedIds.has(b.id) ? 0 : 1;
+      return ap - bp;
     });
-  }, [conversations, search, user]);
+  }, [conversations, search, user, pinnedIds]);
 
   return (
     <>
