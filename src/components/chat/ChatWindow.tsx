@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, ArrowDown, Send, Paperclip, X, Check, CheckCheck, Pencil, Reply, Search, Play, Loader2, AlertCircle, RotateCcw, Trash2, Smile, Mic } from "lucide-react";
 import { VoiceRecorder } from "./VoiceRecorder";
+import { VoiceMessagePlayer } from "./VoiceMessagePlayer";
 import { format, isToday, isYesterday } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -791,7 +792,7 @@ const MessageBubble = ({
             )}
 
             {(msg.type === "voice" && msg.file_url) && (
-              <audio src={msg.file_url} controls className="mb-1 w-full" />
+              <VoiceMessagePlayer url={msg.file_url} isMine={isOwn} />
             )}
 
             {msg.content && msg.type === "text" && (
